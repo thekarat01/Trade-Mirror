@@ -1,0 +1,11 @@
+Activity Date,Process Date,Settle Date,Instrument,Description,Trans Code,Quantity,Price,Amount,
+12/01/2020,12/01/2020,12/03/2020,ACME,"Acme Corp
+CUSIP: 123456789",Buy,10,$5.00,($50.00),
+12/10/2020,12/10/2020,12/14/2020,ACME,"Acme Corp
+CUSIP: 123456789",Sell,5,$6.00,$30.00,
+12/15/2020,12/15/2020,12/16/2020,ACME,ACME 1/15/2021 Call $7.50,BTO,1,$0.50,($50.00),
+12/15/2020,12/15/2020,12/16/2020,ACME,ACME 1/15/2021 Call $7.50,BTO,1,$0.50,($50.00),
+12/17/2020,12/17/2020,12/17/2020,,Instant bank transfer - account ending in 1234,RTP,,,$100.00,
+12/18/2020,12/18/2020,12/18/2020,ACME,Acme corporate action,ZZZ,1S,,,
+,,,,,,,,,
+

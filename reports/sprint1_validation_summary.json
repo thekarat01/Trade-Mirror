@@ -1,0 +1,23 @@
+{
+  "canonical_records": 4824,
+  "date_range": {
+    "end": "2026-08-19",
+    "start": "2020-09-01"
+  },
+  "option_parse_rate": 1.0,
+  "reconciliations": [
+    {
+      "absolute_difference": "0.00",
+      "documented_adjustment_count": 2,
+      "label": "December 2020",
+      "passed": true
+    },
+    {
+      "absolute_difference": "0.00",
+      "documented_adjustment_count": 0,
+      "label": "July 2026",
+      "passed": true
+    }
+  ],
+  "review_rows": 580
+}

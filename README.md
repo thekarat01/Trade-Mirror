@@ -1,0 +1,74 @@
+# TradeMirror
+
+TradeMirror is an evidence-grounded portfolio behavior analyst. It converts raw
+brokerage activity into auditable financial events before any AI-generated
+interpretation is allowed.
+
+The first milestone is the **Portfolio Truth Engine**:
+
+1. Import Robinhood activity without dropping source rows.
+2. Normalize equity, option, cash, fee, income, and corporate-action events.
+3. Keep decision dates separate from cash-settlement dates.
+4. Flag ambiguous and repeated fills instead of silently changing them.
+5. Reconcile the normalized ledger to independent account statements.
+
+TradeMirror is not a stock picker, trading bot, tax calculator, or source of
+personalized financial advice.
+
+## Quick start
+
+Requires Python 3.11 or newer.
+
+```bash
+python -m pip install -e .
+trademirror import path/to/robinhood.csv \
+  --output private_output/canonical_transactions.csv \
+  --report private_output/data_quality_report.json
+PYTHONPATH=src python -m unittest discover -s tests -v
+```
+
+On Windows, the Python launcher is often available even when `python` is not on
+PATH:
+
+```powershell
+py -3.11 -m pip install -e .
+trademirror import path\to\robinhood.csv `
+  --output private_output\canonical_transactions.csv `
+  --report private_output\data_quality_report.json
+$env:PYTHONPATH = "src"
+py -3.11 -m unittest discover -s tests -v
+```
+
+If your system uses `python3`, the zero-dependency test command is:
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -v
+```
+
+The project has no runtime dependencies outside the Python standard library.
+
+
+Raw brokerage files belong in `private/` or `data/raw/`. Both are ignored by
+Git. Never commit statements, tax forms, account identifiers, addresses, or raw
+bank-transfer descriptions.
+
+Canonical CSV exports are sanitized by default and omit `description_raw` and
+`raw_row_json`. Use `--include-raw` only for private local debugging; it prints a
+privacy warning and the output must stay out of Git and shared folders.
+
+## Repository map
+
+- `src/trademirror/`: importer, schema, CLI, and reconciliation logic
+- `tests/`: privacy-safe synthetic fixtures and automated tests
+- `docs/`: product and data-contract documentation
+- `reports/`: sanitized validation summaries only
+- `private/`: local statement anchors; intentionally excluded from Git
+
+## Current acceptance gates
+
+- Every nonblank CSV record produces exactly one canonical record.
+- Original records remain traceable through source identifiers.
+- Option descriptions are parsed into underlying, expiration, type, and strike.
+- Potential identical fills are flagged but never deduplicated automatically.
+- Statement cash reconciliation must finish with a zero difference after
+  explicitly documented source-system adjustments.
