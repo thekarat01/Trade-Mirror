@@ -27,6 +27,9 @@ trademirror import path/to/robinhood.csv \
 trademirror cash-ledger path/to/robinhood.csv \
   --output-dir private_output/cash_ledger \
   --as-of 2026-08-19
+trademirror position-ledger path/to/robinhood.csv \
+  --output-dir private_output/position_ledger \
+  --as-of 2026-08-19
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
@@ -40,6 +43,9 @@ trademirror import path\to\robinhood.csv `
   --report private_output\data_quality_report.json
 trademirror cash-ledger path\to\robinhood.csv `
   --output-dir private_output\cash_ledger `
+  --as-of 2026-08-19
+trademirror position-ledger path\to\robinhood.csv `
+  --output-dir private_output\position_ledger `
   --as-of 2026-08-19
 $env:PYTHONPATH = "src"
 py -3.11 -m unittest discover -s tests -v
@@ -67,11 +73,16 @@ cash accounting, keep activity dates for traceability, separate deposits and
 withdrawals from trading activity, and write pending trades separately when
 `--as-of` is supplied.
 
+Position-ledger outputs are sanitized by default. They maintain separate
+trade-date and settled quantity views, prefer CUSIP identity for equities, keep
+observed ticker aliases instead of rewriting history, and send unresolved
+corporate actions or unmatched option lifecycle events to review.
+
 ## Repository map
 
-- `src/trademirror/`: importer, schema, CLI, and reconciliation logic
+- `src/trademirror/`: importer, schema, ledgers, CLI, and reconciliation logic
 - `tests/`: privacy-safe synthetic fixtures and automated tests
-- `docs/`: product, data-contract, and cash-ledger documentation
+- `docs/`: product, data-contract, cash-ledger, and position-ledger documentation
 - `reports/`: sanitized validation summaries only
 - `private/`: local statement anchors; intentionally excluded from Git
 
