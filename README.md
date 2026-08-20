@@ -24,6 +24,9 @@ python -m pip install -e .
 trademirror import path/to/robinhood.csv \
   --output private_output/canonical_transactions.csv \
   --report private_output/data_quality_report.json
+trademirror cash-ledger path/to/robinhood.csv \
+  --output-dir private_output/cash_ledger \
+  --as-of 2026-08-19
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
@@ -35,6 +38,9 @@ py -3.11 -m pip install -e .
 trademirror import path\to\robinhood.csv `
   --output private_output\canonical_transactions.csv `
   --report private_output\data_quality_report.json
+trademirror cash-ledger path\to\robinhood.csv `
+  --output-dir private_output\cash_ledger `
+  --as-of 2026-08-19
 $env:PYTHONPATH = "src"
 py -3.11 -m unittest discover -s tests -v
 ```
@@ -56,11 +62,16 @@ Canonical CSV exports are sanitized by default and omit `description_raw` and
 `raw_row_json`. Use `--include-raw` only for private local debugging; it prints a
 privacy warning and the output must stay out of Git and shared folders.
 
+Cash-ledger outputs are also sanitized by default. They use settlement dates for
+cash accounting, keep activity dates for traceability, separate deposits and
+withdrawals from trading activity, and write pending trades separately when
+`--as-of` is supplied.
+
 ## Repository map
 
 - `src/trademirror/`: importer, schema, CLI, and reconciliation logic
 - `tests/`: privacy-safe synthetic fixtures and automated tests
-- `docs/`: product and data-contract documentation
+- `docs/`: product, data-contract, and cash-ledger documentation
 - `reports/`: sanitized validation summaries only
 - `private/`: local statement anchors; intentionally excluded from Git
 
