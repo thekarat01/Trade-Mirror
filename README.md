@@ -30,6 +30,9 @@ trademirror cash-ledger path/to/robinhood.csv \
 trademirror position-ledger path/to/robinhood.csv \
   --output-dir private_output/position_ledger \
   --as-of 2026-08-19
+trademirror realized-pnl path/to/robinhood.csv \
+  --output-dir private_output/realized_pnl \
+  --as-of 2026-08-19
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
@@ -46,6 +49,9 @@ trademirror cash-ledger path\to\robinhood.csv `
   --as-of 2026-08-19
 trademirror position-ledger path\to\robinhood.csv `
   --output-dir private_output\position_ledger `
+  --as-of 2026-08-19
+trademirror realized-pnl path\to\robinhood.csv `
+  --output-dir private_output\realized_pnl `
   --as-of 2026-08-19
 $env:PYTHONPATH = "src"
 py -3.11 -m unittest discover -s tests -v
@@ -78,11 +84,19 @@ trade-date and settled quantity views, prefer CUSIP identity for equities, keep
 observed ticker aliases instead of rewriting history, and send unresolved
 corporate actions or unmatched option lifecycle events to review.
 
+Realized-P&L outputs are sanitized by default. `trademirror realized-pnl`
+performs analytical FIFO lot matching for long equities only, using trade dates
+for recognition and settlement dates as audit metadata. It is not tax advice or
+an official tax calculation: wash-sale adjustments, specific-lot elections, tax
+classification, corporate-action basis transformations, options, crypto, and
+market-value returns are deferred.
+
 ## Repository map
 
 - `src/trademirror/`: importer, schema, ledgers, CLI, and reconciliation logic
 - `tests/`: privacy-safe synthetic fixtures and automated tests
-- `docs/`: product, data-contract, cash-ledger, and position-ledger documentation
+- `docs/`: product, data-contract, cash-ledger, position-ledger, and
+  realized-P&L documentation
 - `reports/`: sanitized validation summaries only
 - `private/`: local statement anchors; intentionally excluded from Git
 

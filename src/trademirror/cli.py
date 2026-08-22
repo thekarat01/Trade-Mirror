@@ -6,6 +6,10 @@ from decimal import Decimal
 from pathlib import Path
 
 from .cash_ledger import build_cash_ledger, write_cash_ledger_outputs
+from .equity_realized_pnl import (
+    build_equity_realized_pnl,
+    write_equity_realized_pnl_outputs,
+)
 from .importer import import_robinhood_csv, write_canonical_csv, write_report
 from .position_ledger import (
     build_position_ledger,
@@ -40,6 +44,14 @@ def build_parser() -> argparse.ArgumentParser:
     position_ledger.add_argument("--output-dir", type=Path, required=True)
     position_ledger.add_argument("--as-of", type=date.fromisoformat)
     position_ledger.add_argument("--anchors", type=Path)
+    realized_pnl = commands.add_parser(
+        "realized-pnl",
+        help="Generate analytical FIFO equity realized P&L outputs",
+    )
+    realized_pnl.add_argument("input", type=Path)
+    realized_pnl.add_argument("--output-dir", type=Path, required=True)
+    realized_pnl.add_argument("--as-of", type=date.fromisoformat)
+    realized_pnl.add_argument("--anchors", type=Path)
     return parser
 
 
@@ -78,6 +90,16 @@ def main() -> None:
         print(f"Position events: {result['summary']['event_count']}")
         print(f"Positions as of: {result['summary']['position_count']}")
         print(f"Pending settlement: {result['summary']['pending_settlement_count']}")
+        print(f"Review issues: {result['summary']['review_count']}")
+        print(f"Output directory: {args.output_dir}")
+    elif args.command == "realized-pnl":
+        records, _ = import_robinhood_csv(args.input)
+        anchors = load_position_anchors(args.anchors) if args.anchors else []
+        result = build_equity_realized_pnl(records, as_of=args.as_of, anchors=anchors)
+        write_equity_realized_pnl_outputs(result, args.output_dir)
+        print(f"Lot matches: {result['summary']['match_count']}")
+        print(f"Open lots: {result['summary']['open_lot_count']}")
+        print(f"Net realized P&L: {result['summary']['net_realized_pnl']}")
         print(f"Review issues: {result['summary']['review_count']}")
         print(f"Output directory: {args.output_dir}")
 
