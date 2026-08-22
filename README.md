@@ -70,6 +70,19 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
 The project has no runtime dependencies outside the Python standard library.
+The local dashboard is optional and requires Streamlit:
+
+```bash
+python -m pip install -e ".[dashboard]"
+python -m streamlit run dashboard/app.py
+```
+
+On Windows:
+
+```powershell
+py -3.11 -m pip install -e ".[dashboard]"
+py -3.11 -m streamlit run dashboard/app.py
+```
 
 
 Raw brokerage files belong in `private/` or `data/raw/`. Both are ignored by
@@ -110,6 +123,8 @@ and market data are deferred.
 - `tests/`: privacy-safe synthetic fixtures and automated tests
 - `docs/`: product, data-contract, cash-ledger, position-ledger, and
   realized-P&L documentation
+- `dashboard/`: optional local Streamlit dashboard for sanitized outputs
+- `demo/dashboard_data/`: sanitized synthetic dashboard output bundle
 - `reports/`: sanitized validation summaries only
 - `private/`: local statement anchors; intentionally excluded from Git
 

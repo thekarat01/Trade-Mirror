@@ -1,0 +1,11 @@
+security_key,cusip,primary_observed_symbol,ticker_aliases,asset_type,option_underlying,option_expiration,option_type,option_strike,trade_date_quantity,settled_quantity,trade_date_long_quantity,trade_date_short_quantity,settled_long_quantity,settled_short_quantity,anchor_date,confidence,review_status,review_reasons
+equity:111111111,111111111,ACME,ACME,equity,,,,,6,6,0,0,0,0,,deterministic,validated,
+equity:121212121,121212121,EPSI,EPSI,equity,,,,,0,0,0,0,0,0,,deterministic,validated,
+equity:222222222,222222222,BETA,BETA,equity,,,,,5,5,0,0,0,0,,deterministic,validated,
+equity:333333333,333333333,ZETA,ZETA,equity,,,,,0,0,0,0,0,0,,deterministic,validated,
+equity:777777777,777777777,GAMM,GAMM,equity,,,,,1,1,0,0,0,0,2021-01-15,verified,validated,
+equity:999999999,999999999,DELT,DELT,equity,,,,,2,0,0,0,0,0,,deterministic,validated,
+option:ACME:2019-06-21:call:7.50,,ACME,ACME,option,ACME,2019-06-21,call,7.50,0,0,0,0,0,0,,deterministic,validated,
+option:BETA:2020-03-20:put:20.00,,BETA,BETA,option,BETA,2020-03-20,put,20.00,0,0,0,0,0,0,,deterministic,validated,
+option:FOO:2021-04-16:call:15.00,,FOO,FOO,option,FOO,2021-04-16,call,15.00,0,0,0,0,0,0,,deterministic,validated,
+option:OMEG:2021-03-19:call:5.00,,OMEG,OMEG,option,OMEG,2021-03-19,call,5.00,0,0,0,0,0,0,2021-02-05,verified,validated,

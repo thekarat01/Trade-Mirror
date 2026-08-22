@@ -1,0 +1,20 @@
+{
+  "issues": [
+    {
+      "activity_date": "2021-03-18",
+      "available_quantity": "0",
+      "cusip": "",
+      "event_quantity": "0",
+      "event_type": "sell_to_close",
+      "position_side": "long",
+      "primary_symbol": "ACME",
+      "review_reason": "unmatched_option_close:sell_to_close:security_key=option:ACME:2021-03-19:call:7.50:position_side=long:available=0:event=1",
+      "security_key": "option:ACME:2021-03-19:call:7.50",
+      "settle_date": "2021-03-19",
+      "source_event_quantity": "1",
+      "source_row_id": "19",
+      "transaction_code": "STC"
+    }
+  ],
+  "review_count": 1
+}

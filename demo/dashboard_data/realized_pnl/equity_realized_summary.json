@@ -1,0 +1,27 @@
+{
+  "anchor_count": 2,
+  "break_even_matches": 0,
+  "losing_matches": 1,
+  "match_count": 4,
+  "methodology": "analytical_fifo",
+  "methodology_note": "Analytical FIFO only. Results may differ from Robinhood tax documents because tax-lot elections, wash sales, and basis adjustments are not implemented.",
+  "net_realized_pnl": "160",
+  "open_lot_count": 4,
+  "realized_gain": "260",
+  "realized_loss": "-100",
+  "realized_pnl_by_security": {
+    "equity:111111111": "200",
+    "equity:121212121": "60",
+    "equity:333333333": "-100",
+    "equity:777777777": "0"
+  },
+  "realized_pnl_by_year": {
+    "2019": "200",
+    "2020": "-100",
+    "2021": "60"
+  },
+  "review_count": 1,
+  "unknown_basis_quantity": "1",
+  "unmatched_quantity": "0",
+  "winning_matches": 2
+}

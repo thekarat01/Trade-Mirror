@@ -1,0 +1,36 @@
+{
+  "anchor_count": 1,
+  "basis_transfer_count": 1,
+  "break_even_matches": 0,
+  "losing_matches": 1,
+  "match_count": 4,
+  "methodology": "analytical_option_fifo",
+  "methodology_note": "Analytical option FIFO only. Results may differ from brokerage tax documents because spreads, tax-lot elections, wash sales, tax treatment, exercise/assignment stock-basis linkage, and strategy-level ROI are not implemented.",
+  "net_realized_pnl": "10",
+  "open_lot_count": 0,
+  "realized_gain": "60",
+  "realized_loss": "-50",
+  "realized_pnl_by_option_type": {
+    "call": "60",
+    "put": "-50"
+  },
+  "realized_pnl_by_outcome": {
+    "closed": "10"
+  },
+  "realized_pnl_by_side": {
+    "long": "60",
+    "short": "-50"
+  },
+  "realized_pnl_by_underlying": {
+    "ACME": "60",
+    "BETA": "-50"
+  },
+  "realized_pnl_by_year": {
+    "2019": "60",
+    "2020": "-50"
+  },
+  "review_count": 2,
+  "unknown_basis_quantity": "1",
+  "unmatched_quantity": "1",
+  "winning_matches": 1
+}

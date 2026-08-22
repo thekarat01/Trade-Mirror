@@ -1,0 +1,2 @@
+security_key,structural_key,option_cusip,identity_confidence,underlying,option_expiration,option_type,option_strike,position_side,outcome,opening_event_id,closing_event_id,closing_trade_date,matched_quantity,premium_cost_to_transfer,premium_credit_to_transfer,basis_status,review_status,review_reason
+option:FOO:2021-04-16:call:15.00:cusip:666666666,option:FOO:2021-04-16:call:15.00,666666666,deterministic_cusip,FOO,2021-04-16,call,15.00,long,exercised,16,17,2021-03-15,1,50,,known,review,basis_transfer_required

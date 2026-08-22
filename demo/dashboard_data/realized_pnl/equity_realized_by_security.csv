@@ -1,0 +1,5 @@
+security_key,symbol,identity_confidence,realized_gain,realized_loss,net_realized_pnl,winning_matches,losing_matches,break_even_matches,unknown_basis_quantity,unmatched_quantity
+equity:111111111,ACME,deterministic,200,0,200,1,0,0,0,0
+equity:121212121,EPSI,deterministic,60,0,60,1,0,0,0,0
+equity:333333333,ZETA,deterministic,0,-100,-100,0,1,0,0,0
+equity:777777777,GAMM,deterministic,0,0,0,0,0,0,1,0

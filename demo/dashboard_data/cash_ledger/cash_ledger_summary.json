@@ -1,0 +1,17 @@
+{
+  "anchor_applied": true,
+  "anchor_confidence": "verified",
+  "anchor_date": "2019-01-01",
+  "anchor_status": "applied",
+  "as_of": "2021-12-31",
+  "balance_confidence": "verified_then_derived",
+  "daily_net_cash_movement": "8915.50",
+  "daily_reconciles_to_events": true,
+  "ending_cash": "18915.50",
+  "event_count": 22,
+  "event_net_cash_movement": "8915.50",
+  "opening_cash": "10000.00",
+  "opening_date": "2019-01-01",
+  "pending_settlement_count": 1,
+  "review_count": 0
+}

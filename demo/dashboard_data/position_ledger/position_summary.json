@@ -1,0 +1,14 @@
+{
+  "anchor_count": 2,
+  "event_count": 16,
+  "future_anchor_count": 0,
+  "history_count": 271,
+  "net_trade_date_reconciles_to_events": true,
+  "option_settled_sides_reconcile_to_events": true,
+  "option_trade_date_sides_reconcile_to_events": true,
+  "pending_settlement_count": 1,
+  "position_count": 10,
+  "review_count": 1,
+  "settled_quantities_visible": true,
+  "trade_date_reconciles_to_events": true
+}

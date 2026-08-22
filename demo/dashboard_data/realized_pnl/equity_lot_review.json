@@ -1,0 +1,20 @@
+{
+  "issues": [
+    {
+      "activity_date": "2021-02-01",
+      "amount": "80",
+      "asset_type": "equity",
+      "event_type": "sell",
+      "identity_confidence": "deterministic",
+      "quantity": "1",
+      "review_reason": "unknown_basis_closure",
+      "security_key": "equity:777777777",
+      "settle_date": "2021-02-03",
+      "source_row_id": "15",
+      "symbol": "GAMM",
+      "transaction_code": "Sell",
+      "unknown_basis_quantity": "1"
+    }
+  ],
+  "review_count": 1
+}

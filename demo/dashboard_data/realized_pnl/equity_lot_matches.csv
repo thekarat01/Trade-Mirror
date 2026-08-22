@@ -1,0 +1,5 @@
+security_key,symbol,identity_confidence,opening_event_id,closing_event_id,opening_trade_date,closing_trade_date,opening_settle_date,closing_settle_date,matched_quantity,allocated_opening_cost,allocated_closing_proceeds,realized_pnl,realized_return_pct,holding_period_days,basis_status,review_status,review_reason
+equity:111111111,ACME,deterministic,2,3,2019-01-10,2019-08-15,2019-01-14,2019-08-19,4,400,600,200,50,217,known,validated,
+equity:333333333,ZETA,deterministic,7,8,2020-01-12,2020-03-05,2020-01-14,2020-03-09,2,400,300,-100,-25,53,known,validated,
+equity:777777777,GAMM,deterministic,anchor:2021-01-15,15,2021-01-15,2021-02-01,,2021-02-03,1,,80,,,17,unknown,review,unknown_basis_from_position_anchor
+equity:121212121,EPSI,deterministic,22,23,2021-06-01,2021-07-01,2021-06-03,2021-07-06,3,300,360,60,20,30,known,validated,

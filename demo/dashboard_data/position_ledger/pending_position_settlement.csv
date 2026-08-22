@@ -1,0 +1,2 @@
+source_row_id,activity_date,settle_date,transaction_code,event_type,security_key,signed_quantity,position_side
+20,2021-12-28,2022-01-03,Buy,buy,equity:999999999,2,

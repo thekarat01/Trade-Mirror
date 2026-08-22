@@ -1,0 +1,5 @@
+security_key,symbol,identity_confidence,opening_event_id,opening_trade_date,opening_settle_date,remaining_quantity,remaining_cost,basis_status,review_status,review_reason
+equity:111111111,ACME,deterministic,2,2019-01-10,2019-01-14,6,600,known,validated,
+equity:222222222,BETA,deterministic,14,2021-01-04,2021-01-06,5,500,known,validated,
+equity:777777777,GAMM,deterministic,anchor:2021-01-15,2021-01-15,,1,,unknown,review,unknown_basis_from_position_anchor
+equity:999999999,DELT,deterministic,20,2021-12-28,2022-01-03,2,200,known,validated,

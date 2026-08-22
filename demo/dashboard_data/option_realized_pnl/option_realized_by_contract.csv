@@ -1,0 +1,5 @@
+security_key,structural_key,option_cusip,identity_confidence,underlying,option_expiration,option_type,option_strike,realized_gain,realized_loss,net_realized_pnl,winning_matches,losing_matches,break_even_matches,unknown_basis_quantity,unmatched_quantity
+option:ACME:2019-06-21:call:7.50:cusip:444444444,option:ACME:2019-06-21:call:7.50,444444444,deterministic_cusip,ACME,2019-06-21,call,7.50,60,0,60,1,0,0,0,0
+option:ACME:2021-03-19:call:7.50:cusip:444444444,option:ACME:2021-03-19:call:7.50,444444444,deterministic_cusip,ACME,2021-03-19,call,7.50,0,0,0,0,0,0,0,1
+option:BETA:2020-03-20:put:20.00:cusip:555555555,option:BETA:2020-03-20:put:20.00,555555555,deterministic_cusip,BETA,2020-03-20,put,20.00,0,-50,-50,0,1,0,0,0
+option:OMEG:2021-03-19:call:5.00:cusip:888888888,option:OMEG:2021-03-19:call:5.00,888888888,deterministic_cusip,OMEG,2021-03-19,call,5.00,0,0,0,0,0,0,1,0
