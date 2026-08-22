@@ -11,6 +11,10 @@ from .equity_realized_pnl import (
     write_equity_realized_pnl_outputs,
 )
 from .importer import import_robinhood_csv, write_canonical_csv, write_report
+from .option_realized_pnl import (
+    build_option_realized_pnl,
+    write_option_realized_pnl_outputs,
+)
 from .position_ledger import (
     build_position_ledger,
     load_position_anchors,
@@ -52,6 +56,14 @@ def build_parser() -> argparse.ArgumentParser:
     realized_pnl.add_argument("--output-dir", type=Path, required=True)
     realized_pnl.add_argument("--as-of", type=date.fromisoformat)
     realized_pnl.add_argument("--anchors", type=Path)
+    option_realized_pnl = commands.add_parser(
+        "option-realized-pnl",
+        help="Generate analytical FIFO option realized P&L outputs",
+    )
+    option_realized_pnl.add_argument("input", type=Path)
+    option_realized_pnl.add_argument("--output-dir", type=Path, required=True)
+    option_realized_pnl.add_argument("--as-of", type=date.fromisoformat)
+    option_realized_pnl.add_argument("--anchors", type=Path)
     return parser
 
 
@@ -100,6 +112,17 @@ def main() -> None:
         print(f"Lot matches: {result['summary']['match_count']}")
         print(f"Open lots: {result['summary']['open_lot_count']}")
         print(f"Net realized P&L: {result['summary']['net_realized_pnl']}")
+        print(f"Review issues: {result['summary']['review_count']}")
+        print(f"Output directory: {args.output_dir}")
+    elif args.command == "option-realized-pnl":
+        records, _ = import_robinhood_csv(args.input)
+        anchors = load_position_anchors(args.anchors) if args.anchors else []
+        result = build_option_realized_pnl(records, as_of=args.as_of, anchors=anchors)
+        write_option_realized_pnl_outputs(result, args.output_dir)
+        print(f"Option lot matches: {result['summary']['match_count']}")
+        print(f"Option open lots: {result['summary']['open_lot_count']}")
+        print(f"Option basis transfers: {result['summary']['basis_transfer_count']}")
+        print(f"Net option realized P&L: {result['summary']['net_realized_pnl']}")
         print(f"Review issues: {result['summary']['review_count']}")
         print(f"Output directory: {args.output_dir}")
 

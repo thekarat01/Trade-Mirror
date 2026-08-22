@@ -33,6 +33,9 @@ trademirror position-ledger path/to/robinhood.csv \
 trademirror realized-pnl path/to/robinhood.csv \
   --output-dir private_output/realized_pnl \
   --as-of 2026-08-19
+trademirror option-realized-pnl path/to/robinhood.csv \
+  --output-dir private_output/option_realized_pnl \
+  --as-of 2026-08-19
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
@@ -52,6 +55,9 @@ trademirror position-ledger path\to\robinhood.csv `
   --as-of 2026-08-19
 trademirror realized-pnl path\to\robinhood.csv `
   --output-dir private_output\realized_pnl `
+  --as-of 2026-08-19
+trademirror option-realized-pnl path\to\robinhood.csv `
+  --output-dir private_output\option_realized_pnl `
   --as-of 2026-08-19
 $env:PYTHONPATH = "src"
 py -3.11 -m unittest discover -s tests -v
@@ -90,6 +96,13 @@ for recognition and settlement dates as audit metadata. It is not tax advice or
 an official tax calculation: wash-sale adjustments, specific-lot elections, tax
 classification, corporate-action basis transformations, options, crypto, and
 market-value returns are deferred.
+
+Option realized-P&L outputs are sanitized by default. `trademirror
+option-realized-pnl` performs analytical FIFO lot matching for options while
+keeping long and short inventory separate. Exercise and assignment create
+basis-transfer records instead of standalone option P&L. Spreads, tax treatment,
+wash sales, exercise/assignment stock-basis linkage, short-option strategy ROI,
+and market data are deferred.
 
 ## Repository map
 
