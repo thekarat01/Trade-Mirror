@@ -8,4 +8,6 @@ private/
 private_output/
 data/raw/
 *.egg-info/
-
+.env
+.env.*
+!.env.example

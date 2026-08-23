@@ -42,7 +42,7 @@ from dashboard.pages.cash_positions import (
     cash_summary_metrics,
     render as render_cash_positions,
 )
-from dashboard.pages import cash_positions, data_quality, my_patterns, overview, realized_pnl
+from dashboard.pages import ask_trademirror, cash_positions, data_quality, my_patterns, overview, realized_pnl
 from dashboard.pages.common import page_header
 
 
@@ -550,7 +550,7 @@ class DashboardDataTests(unittest.TestCase):
         self.assertEqual(fake_streamlit.captions, ["Caption"])
 
     def test_all_pages_use_shared_page_header(self):
-        for module in (overview, my_patterns, cash_positions, realized_pnl, data_quality):
+        for module in (overview, my_patterns, ask_trademirror, cash_positions, realized_pnl, data_quality):
             source = inspect.getsource(module.render)
             self.assertIn("page_header(", source)
             self.assertNotIn("badge(", source)
@@ -569,9 +569,9 @@ class DashboardDataTests(unittest.TestCase):
                 sys.modules.pop("streamlit", None)
             else:
                 sys.modules["streamlit"] = previous
-        self.assertEqual([page.title for page in pages], ["Overview", "My Patterns", "Cash & Positions", "Realized P&L", "Data Quality"])
-        self.assertEqual([page.url_path for page in pages], ["overview", "my-patterns", "cash-positions", "realized-pnl", "data-quality"])
-        self.assertEqual(len({page.url_path for page in pages}), 5)
+        self.assertEqual([page.title for page in pages], ["Overview", "My Patterns", "Ask TradeMirror", "Cash & Positions", "Realized P&L", "Data Quality"])
+        self.assertEqual([page.url_path for page in pages], ["overview", "my-patterns", "ask-trademirror", "cash-positions", "realized-pnl", "data-quality"])
+        self.assertEqual(len({page.url_path for page in pages}), 6)
 
     def test_navigation_remains_custom_during_validation_failure(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -600,8 +600,8 @@ class DashboardDataTests(unittest.TestCase):
                     sys.modules.pop("streamlit", None)
                 else:
                     sys.modules["streamlit"] = previous
-            self.assertEqual(fake_streamlit.navigation_titles, ["Overview", "My Patterns", "Cash & Positions", "Realized P&L", "Data Quality"])
-            self.assertEqual(fake_streamlit.navigation_paths, ["overview", "my-patterns", "cash-positions", "realized-pnl", "data-quality"])
+            self.assertEqual(fake_streamlit.navigation_titles, ["Overview", "My Patterns", "Ask TradeMirror", "Cash & Positions", "Realized P&L", "Data Quality"])
+            self.assertEqual(fake_streamlit.navigation_paths, ["overview", "my-patterns", "ask-trademirror", "cash-positions", "realized-pnl", "data-quality"])
             self.assertNotIn("app", {title.casefold() for title in fake_streamlit.navigation_titles})
             self.assertNotIn("common", {title.casefold() for title in fake_streamlit.navigation_titles})
             self.assertTrue(fake_streamlit.errors)

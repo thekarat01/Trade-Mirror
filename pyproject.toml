@@ -11,6 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dashboard = ["streamlit>=1.36"]
+ai = ["openai>=1.40"]
 
 [project.scripts]
 trademirror = "trademirror.cli:main"

@@ -21,7 +21,7 @@ from dashboard.data_loader import (
     load_dashboard_data,
     load_validated_dashboard_data,
 )
-from dashboard.pages import cash_positions, data_quality, my_patterns, overview, realized_pnl
+from dashboard.pages import ask_trademirror, cash_positions, data_quality, my_patterns, overview, realized_pnl
 
 
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +31,7 @@ PageRenderer = Callable[[Any, DashboardData], None]
 PAGE_DEFINITIONS: tuple[tuple[str, str, PageRenderer], ...] = (
     ("Overview", "overview", overview.render),
     ("My Patterns", "my-patterns", my_patterns.render),
+    ("Ask TradeMirror", "ask-trademirror", ask_trademirror.render),
     ("Cash & Positions", "cash-positions", cash_positions.render),
     ("Realized P&L", "realized-pnl", realized_pnl.render),
     ("Data Quality", "data-quality", data_quality.render),

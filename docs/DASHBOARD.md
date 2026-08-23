@@ -42,6 +42,8 @@ synthetic outputs generated from `dashboard/generate_demo_data.py`.
   `st.navigation`.
 - `dashboard/data_loader.py` validates existing CSV and JSON outputs before
   pages render.
+- `dashboard/ask_trademirror.py` builds bounded, sanitized evidence packages
+  for the optional grounded conversational explainer.
 - `dashboard/formatters.py` centralizes currency, quantity, date and percentage
   formatting.
 - `dashboard/pages/` contains presentation-only pages.
@@ -79,6 +81,11 @@ exports still require a separate privacy scan.
 ## Pages
 
 - Overview: included realized P&L, win rate, open positions and review counts.
+- My Patterns: aggregate behavioral evidence, ranked process patterns,
+  confidence labels and educational guardrails.
+- Ask TradeMirror: grounded conversational explanations of behavioral evidence
+  using deterministic demo templates without a key, or OpenAI Responses API
+  when configured.
 - Cash & Positions: settlement-date cash, cash-flow categories, equity and
   option position tables, pending settlement.
 - Realized P&L: equity versus option comparisons, annual P&L, best and worst
@@ -92,3 +99,6 @@ The dashboard does not show market value, unrealized return, allocation
 percentages, recommendations, predictions, tax advice, spread grouping,
 strategy-level option analysis, live prices, uploads, authentication or cloud
 deployment. These are out of scope for Sprint 4A.
+
+See `docs/ASK_TRADEMIRROR.md` for the Milestone 4 conversational-AI data flow,
+provider configuration, privacy boundaries and evaluation method.

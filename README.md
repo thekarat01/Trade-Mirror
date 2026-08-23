@@ -83,8 +83,8 @@ If your system uses `python3`, the zero-dependency test command is:
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-The project has no runtime dependencies outside the Python standard library.
-The local dashboard is optional and requires Streamlit:
+The deterministic CLI has no runtime dependencies outside the Python standard
+library. The local dashboard is optional and requires Streamlit:
 
 ```bash
 python -m pip install -e ".[dashboard]"
@@ -96,6 +96,15 @@ On Windows:
 ```powershell
 py -3.11 -m pip install -e ".[dashboard]"
 py -3.11 -m streamlit run dashboard/app.py
+```
+
+Ask TradeMirror works in deterministic demo mode without an API key. To enable
+the optional OpenAI Responses API provider locally:
+
+```powershell
+py -3.11 -m pip install -e ".[dashboard,ai]"
+$env:OPENAI_API_KEY = "your-key"
+$env:OPENAI_MODEL = "gpt-5.6-terra"
 ```
 
 
@@ -145,11 +154,12 @@ section, and excludes unresolved records. It describes historical aggregate
 patterns only; it does not predict prices, recommend securities, or generate
 trade instructions.
 
-The dashboard includes a **My Patterns** page for those behavioral outputs. It
-shows evidence coverage, up to three priority patterns, what helped or hurt,
-aggregate charts, process guardrails, and a reliability explainer. Demo mode
-uses committed synthetic behavioral outputs. Private mode should point only to
-an ignored sanitized behavioral-output directory, for example:
+The dashboard includes **My Patterns** and **Ask TradeMirror** pages for those
+behavioral outputs. Ask TradeMirror explains allowlisted aggregate evidence only
+and refuses predictions, security recommendations, tax/legal conclusions,
+prompt-injection attempts, and raw-data requests before any provider call. Demo
+mode uses committed synthetic behavioral outputs. Private mode should point only
+to an ignored sanitized behavioral-output directory, for example:
 
 ```powershell
 $env:TRADEMIRROR_DASHBOARD_DATA = "private_output/behavioral_insights_baseline"
