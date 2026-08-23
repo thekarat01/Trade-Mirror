@@ -611,12 +611,14 @@ class DashboardDataTests(unittest.TestCase):
         self.assertEqual(data.behavioral_root, BEHAVIORAL_DEMO_DATA_DIR)
         model = build_patterns_view_model(data)
         self.assertTrue(model["available"])
-        self.assertEqual(model["coverage"]["High-confidence completed trades"], "26")
+        self.assertEqual(model["coverage"]["High-confidence completed trades"], "30")
         self.assertEqual(model["coverage"]["Limited-confidence trades"], "2")
         self.assertEqual(model["coverage"]["Excluded matches"], "2")
-        self.assertEqual(model["coverage"]["High-confidence coverage"], "86.67%")
-        self.assertEqual(model["date_range"], "2021-01-01 to 2022-02-20")
+        self.assertEqual(model["coverage"]["High-confidence coverage"], "88.24%")
+        self.assertEqual(model["date_range"], "2021-01-01 to 2022-06-08")
         self.assertLessEqual(len(model["priority_patterns"]), 3)
+        self.assertEqual(model["performance_summary"]["Net realized P&L"], "-$603.00")
+        self.assertEqual(model["performance_summary"]["Win rate"], "56.67%")
 
     def test_behavioral_csv_prohibited_headers_are_rejected_after_normalization(self):
         cases = [
@@ -688,6 +690,31 @@ class DashboardDataTests(unittest.TestCase):
         self.assertLessEqual(len(model["what_hurt"]), 3)
         self.assertLessEqual(len(model["what_helped"]), 3)
 
+    def test_behavioral_performance_summary_is_not_ranked_as_pattern(self):
+        model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
+        cards = model["priority_patterns"] + model["what_helped"] + model["what_hurt"]
+        titles = [card["title"] for card in cards]
+        self.assertNotIn("Overall completed-trade result", titles)
+        self.assertEqual(len(titles), len(set(titles)))
+        self.assertEqual(model["performance_summary"]["Net realized P&L"], "-$603.00")
+        self.assertNotIn("P&L of -603", str(model))
+
+    def test_behavioral_demo_has_positive_pattern_without_weakening_thresholds(self):
+        model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
+        cards = model["priority_patterns"] + model["what_helped"]
+        helped = [card for card in cards if card["direction"] == "HELPED"]
+        self.assertTrue(helped)
+        self.assertTrue(all(int(card["eligible_trade_count"]) >= 10 for card in helped))
+
+    def test_behavioral_coverage_notes_render_as_text_not_python_list(self):
+        model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
+        fake_streamlit = _FakePatternsStreamlit()
+        my_patterns._render_coverage(fake_streamlit, model)
+        self.assertFalse(fake_streamlit.writes)
+        rendered = "\n".join(fake_streamlit.markdowns)
+        self.assertIn("- High-confidence trades drive primary findings.", rendered)
+        self.assertNotIn("[", rendered)
+
     def test_behavioral_missing_data_state_is_safe(self):
         with tempfile.TemporaryDirectory() as directory:
             data = load_dashboard_data(directory)
@@ -722,12 +749,10 @@ class DashboardDataTests(unittest.TestCase):
         self.assertEqual(holding["trade_count"], "0")
         self.assertEqual(holding["win_rate"], "")
         model = build_patterns_view_model(data)
-        unavailable = [
-            row for row in model["charts"]["holding_period_results"]
-            if row["Holding period"] == "More than 90 days"
-        ][0]
-        self.assertIsNone(unavailable["Win rate"])
-        self.assertEqual(unavailable["Net P&L"], Decimal("0"))
+        self.assertNotIn(
+            "More than 90 days",
+            {row["Holding period"] for row in model["charts"]["holding_period_results"]},
+        )
 
     def test_behavioral_blank_win_rate_is_rejected_when_denominator_is_positive(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -776,15 +801,33 @@ class DashboardDataTests(unittest.TestCase):
         model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
         guardrails = model["guardrails"]
         self.assertEqual(len(guardrails), 3)
+        self.assertEqual([row["Number"] for row in guardrails], ["1", "2", "3"])
         self.assertEqual([row["Pattern"] for row in guardrails], [
-            "Overall completed-trade result",
+            "High-activity months differed",
             "Losses were concentrated",
-            "Losing trades stayed open longer",
+            "Equity and option outcomes differed",
         ])
+        self.assertTrue(all(row["Supporting metric"] for row in guardrails))
         rendered = str(guardrails).lower()
         self.assertNotIn("buy ", rendered)
         self.assertNotIn("sell ", rendered)
         self.assertNotIn("allocation", rendered)
+
+    def test_behavioral_chart_rows_use_semantic_values_and_omit_unavailable_rates(self):
+        model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
+        holding = model["charts"]["holding_period_results"]
+        self.assertTrue(any(row["Net P&L"] > 0 and row["Result"] == "Positive" for row in holding))
+        self.assertTrue(any(row["Net P&L"] < 0 and row["Result"] == "Negative" for row in holding))
+        self.assertTrue(all(row["Win rate"] is not None for row in holding))
+        self.assertTrue(all(row["Trade count"] > 0 for row in holding))
+        loss = model["charts"]["loss_concentration"]
+        self.assertEqual(set(loss[0]), {"Group", "Share of gross losses (%)", "Result"})
+        self.assertTrue(all(row["Result"] == "Negative" for row in loss))
+
+    def test_behavioral_reentry_uses_compact_evidence_when_single_point(self):
+        model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
+        self.assertEqual(len(model["charts"]["reentry"]), 1)
+        self.assertEqual(model["charts"]["reentry"][0]["Trades after prior loss"], 6)
 
     def test_behavioral_reconciliation_validation_rejects_inconsistent_annual_totals(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1011,8 +1054,39 @@ class _DashboardDataStub:
 
 
 class _FakeColumn:
+    def __init__(self, parent=None):
+        self.parent = parent
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
     def metric(self, *_args, **_kwargs) -> None:
         return None
+
+    def markdown(self, text: str, **_kwargs) -> None:
+        if self.parent is not None and hasattr(self.parent, "markdowns"):
+            self.parent.markdowns.append(text)
+
+
+class _FakePatternsStreamlit:
+    def __init__(self):
+        self.markdowns: list[str] = []
+        self.writes: list[object] = []
+
+    def columns(self, count: int):
+        return [_FakeColumn(self) for _ in range(count)]
+
+    def subheader(self, *_args, **_kwargs) -> None:
+        return None
+
+    def markdown(self, text: str, **_kwargs) -> None:
+        self.markdowns.append(text)
+
+    def write(self, value: object, **_kwargs) -> None:
+        self.writes.append(value)
 
 
 class _FakeCashStreamlit:

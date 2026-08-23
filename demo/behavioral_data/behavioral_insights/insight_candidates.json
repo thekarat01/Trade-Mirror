@@ -1,50 +1,50 @@
 {
   "items": [
     {
-      "comparison_value": "-5.5",
+      "comparison_value": "10.35714285714285714285714286",
       "confidence": "medium",
       "date_range": {
-        "end": "2022-02-20",
+        "end": "2022-06-08",
         "start": "2021-01-01"
       },
       "educational_guardrail": "Set a monthly trading-frequency review threshold and compare outcomes after the month closes.",
-      "eligible_trade_count": 10,
+      "eligible_trade_count": 14,
       "evidence_strength_reason": "high activity is defined by the documented 75th percentile monthly trade-count rule",
       "finding": "High-activity months were compared with other eligible months without claiming causation.",
       "finding_type": "hurt",
       "insight_code": "activity_high_months",
       "limitation": "Month-level aggregation cannot prove trading frequency caused outcomes.",
       "metric_value": "-46.75",
-      "rank_score": "3.30004125",
+      "rank_score": "3.420057107142857142857142857",
       "supporting_aggregate_evidence": [
         "activity_behavior.csv"
       ]
     },
     {
       "comparison_value": "-578",
-      "confidence": "insufficient_evidence",
+      "confidence": "medium",
       "date_range": {
-        "end": "2022-02-20",
+        "end": "2022-06-08",
         "start": "2021-01-01"
       },
       "educational_guardrail": "Separate options-risk review from long-equity review before evaluating behavior.",
-      "eligible_trade_count": 6,
+      "eligible_trade_count": 10,
       "evidence_strength_reason": "compares asset-type aggregates without recalculating option multipliers",
       "finding": "Option and equity outcomes differed in the high-confidence completed-trade sample.",
       "finding_type": "helped",
       "insight_code": "asset_option_relative_result",
       "limitation": "Options with basis transfers or unresolved lifecycle events are excluded.",
-      "metric_value": "-225",
-      "rank_score": "0.000353",
+      "metric_value": "-25",
+      "rank_score": "3.300553",
       "supporting_aggregate_evidence": [
         "behavioral_summary.asset_type"
       ]
     },
     {
-      "comparison_value": "2",
+      "comparison_value": "5",
       "confidence": "medium",
       "date_range": {
-        "end": "2022-02-20",
+        "end": "2022-06-08",
         "start": "2021-01-01"
       },
       "educational_guardrail": "Define an exit condition before entering a trade and review whether losers stay open longer.",
@@ -55,7 +55,7 @@
       "insight_code": "holding_loser_duration",
       "limitation": "CSV exports lack intraday ordering, so same-day timing is not inferred.",
       "metric_value": "10",
-      "rank_score": "3.390008",
+      "rank_score": "3.390005",
       "supporting_aggregate_evidence": [
         "holding_period_behavior.csv"
       ]
@@ -64,7 +64,7 @@
       "comparison_value": "5",
       "confidence": "insufficient_evidence",
       "date_range": {
-        "end": "2022-02-20",
+        "end": "2022-06-08",
         "start": "2021-01-01"
       },
       "educational_guardrail": "Treat small-sample patterns as review prompts, not conclusions.",
@@ -84,7 +84,7 @@
       "comparison_value": "gross_losses",
       "confidence": "medium",
       "date_range": {
-        "end": "2022-02-20",
+        "end": "2022-06-08",
         "start": "2021-01-01"
       },
       "educational_guardrail": "Review whether one loss can erase several typical gains before entering a trade.",
@@ -104,27 +104,27 @@
       "comparison_value": "0",
       "confidence": "medium",
       "date_range": {
-        "end": "2022-02-20",
+        "end": "2022-06-08",
         "start": "2021-01-01"
       },
       "educational_guardrail": "Review realized outcomes separately from deposits, withdrawals, and unresolved records.",
-      "eligible_trade_count": 26,
+      "eligible_trade_count": 30,
       "evidence_strength_reason": "uses only high-confidence completed trades",
-      "finding": "High-confidence completed trades had net realized P&L of -803.",
+      "finding": "High-confidence completed trades had net realized P&L of -603.",
       "finding_type": "hurt",
       "insight_code": "overall_result",
       "limitation": "Analytical realized P&L is not tax P&L and excludes unresolved trades.",
-      "metric_value": "-803",
-      "rank_score": "3.780803",
+      "metric_value": "-603",
+      "rank_score": "3.900603",
       "supporting_aggregate_evidence": [
         "behavioral_summary.overall"
       ]
     },
     {
-      "comparison_value": "-693",
+      "comparison_value": "-493",
       "confidence": "medium",
       "date_range": {
-        "end": "2022-02-20",
+        "end": "2022-06-08",
         "start": "2021-01-01"
       },
       "educational_guardrail": "Use a cooling-off checklist before quickly re-entering the same instrument after a loss.",

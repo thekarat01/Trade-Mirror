@@ -9,3 +9,7 @@ month,trade_count,net_pnl,gross_loss,win_rate,average_pnl,activity_segment
 2021-08,1,-35,35,0,-35,other
 2022-01,1,40,0,100,40,other
 2022-02,1,-45,45,0,-45,other
+2022-03,1,50,0,100,50,other
+2022-04,1,50,0,100,50,other
+2022-05,1,50,0,100,50,other
+2022-06,1,50,0,100,50,other

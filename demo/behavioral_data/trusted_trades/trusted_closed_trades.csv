@@ -25,3 +25,7 @@ trade_021,instrument_o4,option,2021-07-02,2021-07-16,14,1,100,125,25,25,high_con
 trade_022,instrument_o5,option,2021-08-01,2021-08-10,9,1,100,65,-35,-35,high_confidence,
 trade_023,instrument_e11,equity,2022-01-01,2022-01-10,9,1,100,140,40,40,high_confidence,
 trade_024,instrument_o6,option,2022-02-01,2022-02-20,19,1,100,55,-45,-45,high_confidence,
+trade_027,instrument_o7,option,2022-03-01,2022-03-08,7,1,100,150,50,50,high_confidence,
+trade_028,instrument_o8,option,2022-04-01,2022-04-08,7,1,100,150,50,50,high_confidence,
+trade_029,instrument_o9,option,2022-05-01,2022-05-08,7,1,100,150,50,50,high_confidence,
+trade_030,instrument_o10,option,2022-06-01,2022-06-08,7,1,100,150,50,50,high_confidence,

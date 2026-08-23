@@ -2,7 +2,7 @@
   "candidate_count": 7,
   "excluded_records_used_in_primary_metrics": false,
   "high_confidence_pnl_reconciles_to_trusted_dataset": true,
-  "high_confidence_trade_count": 26,
+  "high_confidence_trade_count": 30,
   "limited_confidence_sensitivity_is_separate": true,
   "limited_confidence_trade_count": 2,
   "low_or_insufficient_candidates_promoted": false,

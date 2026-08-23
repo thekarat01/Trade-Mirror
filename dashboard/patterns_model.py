@@ -16,6 +16,7 @@ from dashboard.formatters import format_currency, format_percent, parse_decimal
 
 
 ADEQUATE_CONFIDENCE = {"medium", "high"}
+PERFORMANCE_SUMMARY_CODES = {"overall_result"}
 PROHIBITED_VIEW_TOKENS = (
     "instrument_",
     "security_key",
@@ -45,10 +46,11 @@ def build_patterns_view_model(data: DashboardData) -> dict[str, Any]:
     validation = behavioral_json_data(data, "insight_validation.json")
     _validate_behavioral_reconciliation(data, summary, candidates, ranked, validation)
 
-    priority = _unique_cards([*ranked.get("what_hurt", []), *ranked.get("what_helped", [])])[:3]
-    helped = _unique_cards(ranked.get("what_helped", []))[:3]
-    hurt = _unique_cards(ranked.get("what_hurt", []))[:3]
-    guardrails = _guardrail_rows(ranked.get("priority_guardrails", []), candidates)[:3]
+    priority = _unique_behavior_cards([*ranked.get("what_hurt", []), *ranked.get("what_helped", [])])[:3]
+    priority_codes = {str(item.get("insight_code") or "") for item in priority}
+    helped = _unique_behavior_cards(ranked.get("what_helped", []), exclude_codes=priority_codes)[:3]
+    hurt = _unique_behavior_cards(ranked.get("what_hurt", []), exclude_codes=priority_codes)[:3]
+    guardrails = _guardrail_rows(ranked.get("priority_guardrails", []), candidates, priority)[:3]
     model = {
         "available": True,
         "title": "My Patterns",
@@ -56,6 +58,12 @@ def build_patterns_view_model(data: DashboardData) -> dict[str, Any]:
         "disclaimer": "This page describes historical aggregate evidence only. It does not predict future performance or provide security guidance.",
         "date_range": _date_range(summary),
         "coverage": _coverage(summary),
+        "coverage_notes": [
+            "High-confidence trades drive primary findings.",
+            "Limited-confidence trades are used only for sensitivity checks.",
+            "Excluded records do not affect findings.",
+        ],
+        "performance_summary": _performance_summary(summary),
         "overall_confidence": _overall_confidence(candidates),
         "priority_patterns": [_card(item) for item in priority],
         "what_helped": [_card(item) for item in helped],
@@ -179,16 +187,31 @@ def _overall_confidence(candidates: list[Mapping[str, Any]]) -> str:
     return "Unavailable"
 
 
-def _unique_cards(items: list[Any]) -> list[Mapping[str, Any]]:
+def _performance_summary(summary: Mapping[str, Any]) -> dict[str, str]:
+    overall = summary.get("overall", {})
+    if not isinstance(overall, Mapping):
+        overall = {}
+    return {
+        "Net realized P&L": format_currency(overall.get("net_realized_pnl")),
+        "High-confidence completed trades": str(overall.get("trade_count") or "0"),
+        "Win rate": format_percent(overall.get("win_rate")),
+        "Gross gains": format_currency(overall.get("gross_gains")),
+        "Gross losses": format_currency(overall.get("gross_losses")),
+        "Profit factor": _format_ratio(overall.get("profit_factor")),
+    }
+
+
+def _unique_behavior_cards(items: list[Any], *, exclude_codes: set[str] | None = None) -> list[Mapping[str, Any]]:
     seen: set[str] = set()
     output: list[Mapping[str, Any]] = []
+    excluded = exclude_codes or set()
     for item in items:
         if not isinstance(item, Mapping):
             continue
         if str(item.get("confidence") or "") not in ADEQUATE_CONFIDENCE:
             continue
         code = str(item.get("insight_code") or "")
-        if not code or code in seen:
+        if not code or code in seen or code in excluded or code in PERFORMANCE_SUMMARY_CODES:
             continue
         seen.add(code)
         output.append(item)
@@ -200,6 +223,7 @@ def _card(item: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "title": _title_for(code),
         "finding_type": _plain_type(str(item.get("finding_type") or "")),
+        "direction": _direction_label(str(item.get("finding_type") or "")),
         "what_we_observed": str(item.get("finding") or ""),
         "supporting_metric": _metric_for(code, item.get("metric_value")),
         "comparison": _comparison_for(code, item.get("comparison_value")),
@@ -212,22 +236,46 @@ def _card(item: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _guardrail_rows(items: list[Any], candidates: list[Mapping[str, Any]]) -> list[dict[str, str]]:
+def _guardrail_rows(
+    items: list[Any],
+    candidates: list[Mapping[str, Any]],
+    priority: list[Mapping[str, Any]],
+) -> list[dict[str, str]]:
     candidate_by_code = {str(item.get("insight_code")): item for item in candidates}
     rows: list[dict[str, str]] = []
     seen: set[str] = set()
-    for item in items:
+    source_items = [
+        item
+        for item in items
+        if isinstance(item, Mapping)
+    ] + [
+        item
+        for item in priority
+        if isinstance(item, Mapping)
+        and str(item.get("insight_code") or "") not in {
+            str(existing.get("insight_code") or "")
+            for existing in items
+            if isinstance(existing, Mapping)
+        }
+    ]
+    for item in source_items:
         if not isinstance(item, Mapping):
             continue
         code = str(item.get("insight_code") or "")
+        if code in PERFORMANCE_SUMMARY_CODES:
+            continue
         candidate = candidate_by_code.get(code, {})
+        if str(candidate.get("confidence") or "") not in ADEQUATE_CONFIDENCE:
+            continue
         guardrail = str(item.get("educational_guardrail") or candidate.get("educational_guardrail") or "")
         if not guardrail or guardrail in seen:
             continue
         seen.add(guardrail)
         rows.append({
+            "Number": str(len(rows) + 1),
             "Pattern": _title_for(code),
             "Process guardrail": guardrail,
+            "Supporting metric": _metric_for(code, candidate.get("metric_value")),
             "Evidence": ", ".join(_evidence_label(str(value)) for value in item.get("supporting_aggregate_evidence", [])),
         })
     return rows
@@ -256,7 +304,8 @@ def _asset_results(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "Asset type": label,
                 "Net realized P&L": parse_decimal(values.get("net_pnl")) or Decimal("0"),
                 "Trade count": int(parse_decimal(values.get("trade_count")) or Decimal("0")),
-                "Win rate": parse_decimal(values.get("win_rate")) or Decimal("0"),
+                "Win rate": parse_decimal(values.get("win_rate")),
+                "Result": _result_direction(parse_decimal(values.get("net_pnl")) or Decimal("0")),
             })
     return rows
 
@@ -268,8 +317,10 @@ def _holding_rows(data: DashboardData) -> list[dict[str, Any]]:
             "Trade count": int(parse_decimal(row.get("trade_count")) or Decimal("0")),
             "Net P&L": parse_decimal(row.get("net_pnl")) or Decimal("0"),
             "Win rate": parse_decimal(row.get("win_rate")),
+            "Result": _result_direction(parse_decimal(row.get("net_pnl")) or Decimal("0")),
         }
         for row in behavioral_csv_rows(data, "holding_period_behavior.csv")
+        if int(parse_decimal(row.get("trade_count")) or Decimal("0")) > 0
     ]
 
 
@@ -280,8 +331,10 @@ def _annual_rows(data: DashboardData) -> list[dict[str, Any]]:
             "High-confidence P&L": parse_decimal(row.get("net_pnl")) or Decimal("0"),
             "Trade count": int(parse_decimal(row.get("trade_count")) or Decimal("0")),
             "Confidence": _confidence_label(str(row.get("confidence") or "")),
+            "Result": _result_direction(parse_decimal(row.get("net_pnl")) or Decimal("0")),
         }
         for row in behavioral_csv_rows(data, "annual_behavior.csv")
+        if int(parse_decimal(row.get("trade_count")) or Decimal("0")) > 0
     ]
 
 
@@ -294,8 +347,10 @@ def _activity_rows(data: DashboardData) -> list[dict[str, Any]]:
             "Trade count": int(parse_decimal(row.get("trade_count")) or Decimal("0")),
             "Win rate": parse_decimal(row.get("win_rate")),
             "Activity segment": "High activity" if row.get("activity_segment") == "high_activity" else "Other months",
+            "Result": _result_direction(parse_decimal(row.get("average_pnl"))),
         }
         for row in behavioral_csv_rows(data, "activity_behavior.csv")
+        if int(parse_decimal(row.get("trade_count")) or Decimal("0")) > 0
     ]
 
 
@@ -304,9 +359,9 @@ def _loss_concentration_rows(summary: Mapping[str, Any]) -> list[dict[str, Any]]
     if not isinstance(loss, Mapping):
         return []
     return [
-        {"Group": "Largest loss", "Share of gross losses": _share(loss.get("largest_1_loss_share"))},
-        {"Group": "Largest three losses", "Share of gross losses": _share(loss.get("largest_3_loss_share"))},
-        {"Group": "Largest five losses", "Share of gross losses": _share(loss.get("largest_5_loss_share"))},
+        {"Group": "Largest loss", "Share of gross losses (%)": _share(loss.get("largest_1_loss_share")), "Result": "Negative"},
+        {"Group": "Largest three losses", "Share of gross losses (%)": _share(loss.get("largest_3_loss_share")), "Result": "Negative"},
+        {"Group": "Largest five losses", "Share of gross losses (%)": _share(loss.get("largest_5_loss_share")), "Result": "Negative"},
     ]
 
 
@@ -321,6 +376,7 @@ def _reentry_rows(data: DashboardData) -> list[dict[str, Any]]:
             "Net P&L": parse_decimal(row.get("net_pnl")) or Decimal("0"),
             "Comparison P&L": parse_decimal(row.get("comparison_net_pnl")) or Decimal("0"),
             "Confidence": _confidence_label(str(row.get("confidence") or "")),
+            "Result": _result_direction(parse_decimal(row.get("net_pnl")) or Decimal("0")),
         })
     return rows
 
@@ -421,6 +477,14 @@ def _plain_type(value: str) -> str:
     return "Pattern"
 
 
+def _direction_label(value: str) -> str:
+    if value == "helped":
+        return "HELPED"
+    if value == "hurt":
+        return "HURT"
+    return "MIXED"
+
+
 def _confidence_label(value: str) -> str:
     return {
         "high": "High",
@@ -467,6 +531,23 @@ def _share(value: object) -> Decimal | None:
     if amount is None:
         return None
     return amount * Decimal("100")
+
+
+def _format_ratio(value: object) -> str:
+    amount = parse_decimal(value)
+    if amount is None:
+        return "Not available"
+    return str(amount.quantize(Decimal("0.01")))
+
+
+def _result_direction(value: Decimal | None) -> str:
+    if value is None:
+        return "Unavailable"
+    if value > 0:
+        return "Positive"
+    if value < 0:
+        return "Negative"
+    return "Neutral"
 
 
 def _decimal_close(left: Decimal, right: Decimal) -> bool:
