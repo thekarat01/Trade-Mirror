@@ -145,6 +145,17 @@ section, and excludes unresolved records. It describes historical aggregate
 patterns only; it does not predict prices, recommend securities, or generate
 trade instructions.
 
+The dashboard includes a **My Patterns** page for those behavioral outputs. It
+shows evidence coverage, up to three priority patterns, what helped or hurt,
+aggregate charts, process guardrails, and a reliability explainer. Demo mode
+uses committed synthetic behavioral outputs. Private mode should point only to
+an ignored sanitized behavioral-output directory, for example:
+
+```powershell
+$env:TRADEMIRROR_DASHBOARD_DATA = "private_output/behavioral_insights_baseline"
+streamlit run dashboard/app.py
+```
+
 ## Repository map
 
 - `src/trademirror/`: importer, schema, ledgers, CLI, and reconciliation logic
@@ -153,6 +164,8 @@ trade instructions.
   trusted-trade, and behavioral-insights documentation
 - `dashboard/`: optional local Streamlit dashboard for sanitized outputs
 - `demo/dashboard_data/`: sanitized synthetic dashboard output bundle
+- `demo/behavioral_data/`: sanitized synthetic trusted-trade and behavioral
+  output bundle
 - `reports/`: sanitized validation summaries only
 - `private/`: local statement anchors; intentionally excluded from Git
 

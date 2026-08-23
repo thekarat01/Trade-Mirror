@@ -14,6 +14,8 @@ import types
 import unittest
 
 from dashboard.data_loader import (
+    BEHAVIORAL_CSV_SCHEMAS,
+    BEHAVIORAL_DEMO_DATA_DIR,
     CSV_SCHEMAS,
     DEMO_DATA_DIR,
     annual_realized_chart_rows,
@@ -29,6 +31,7 @@ from dashboard.data_loader import (
     technical_review_rows,
 )
 from dashboard.formatters import format_currency, format_percent, format_quantity
+from dashboard.patterns_model import PatternValidationError, build_patterns_view_model
 from dashboard.pages.cash_positions import (
     cash_balance_chart,
     cash_balance_chart_rows,
@@ -39,7 +42,7 @@ from dashboard.pages.cash_positions import (
     cash_summary_metrics,
     render as render_cash_positions,
 )
-from dashboard.pages import cash_positions, data_quality, overview, realized_pnl
+from dashboard.pages import cash_positions, data_quality, my_patterns, overview, realized_pnl
 from dashboard.pages.common import page_header
 
 
@@ -547,7 +550,7 @@ class DashboardDataTests(unittest.TestCase):
         self.assertEqual(fake_streamlit.captions, ["Caption"])
 
     def test_all_pages_use_shared_page_header(self):
-        for module in (overview, cash_positions, realized_pnl, data_quality):
+        for module in (overview, my_patterns, cash_positions, realized_pnl, data_quality):
             source = inspect.getsource(module.render)
             self.assertIn("page_header(", source)
             self.assertNotIn("badge(", source)
@@ -566,9 +569,153 @@ class DashboardDataTests(unittest.TestCase):
                 sys.modules.pop("streamlit", None)
             else:
                 sys.modules["streamlit"] = previous
-        self.assertEqual([page.title for page in pages], ["Overview", "Cash & Positions", "Realized P&L", "Data Quality"])
-        self.assertEqual([page.url_path for page in pages], ["overview", "cash-positions", "realized-pnl", "data-quality"])
-        self.assertEqual(len({page.url_path for page in pages}), 4)
+        self.assertEqual([page.title for page in pages], ["Overview", "My Patterns", "Cash & Positions", "Realized P&L", "Data Quality"])
+        self.assertEqual([page.url_path for page in pages], ["overview", "my-patterns", "cash-positions", "realized-pnl", "data-quality"])
+        self.assertEqual(len({page.url_path for page in pages}), 5)
+
+    def test_behavioral_demo_outputs_load_and_reconcile(self):
+        data = load_dashboard_data(DEMO_DATA_DIR)
+        self.assertEqual(data.behavioral_root, BEHAVIORAL_DEMO_DATA_DIR)
+        model = build_patterns_view_model(data)
+        self.assertTrue(model["available"])
+        self.assertEqual(model["coverage"]["High-confidence completed trades"], "26")
+        self.assertEqual(model["coverage"]["Limited-confidence trades"], "2")
+        self.assertEqual(model["coverage"]["Excluded matches"], "2")
+        self.assertEqual(model["coverage"]["High-confidence coverage"], "86.67%")
+        self.assertEqual(model["date_range"], "2021-01-01 to 2022-02-20")
+        self.assertLessEqual(len(model["priority_patterns"]), 3)
+
+    def test_behavioral_csv_prohibited_headers_are_rejected_after_normalization(self):
+        cases = [
+            "description_raw",
+            " Description_Raw ",
+            "DESCRIPTION_RAW",
+            "\ufeffdescription_raw",
+            " Raw_Row_JSON ",
+        ]
+        for header in cases:
+            with self.subTest(header=header), tempfile.TemporaryDirectory() as directory:
+                secret = "private-account-7777"
+                self._write_behavioral_csv_with_columns(
+                    directory,
+                    "annual_behavior.csv",
+                    [*BEHAVIORAL_CSV_SCHEMAS["annual_behavior.csv"], header],
+                    {header: secret},
+                )
+                data = load_dashboard_data(directory)
+                loaded = (data.behavioral_csv_files or {})["annual_behavior.csv"]
+                self.assertFalse(loaded.available)
+                self.assertEqual(loaded.rows, ())
+                self.assertIn("Prohibited raw/private fields are present.", loaded.error)
+                self.assertNotIn(secret, loaded.error)
+                self.assertNotIn(secret, "\n".join(data.errors))
+
+    def test_behavioral_csv_extra_columns_do_not_reach_view_model(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self._copy_behavioral_demo(directory)
+            secret = "Account Number: 123456789"
+            annual_path = Path(directory) / "annual_behavior.csv"
+            with annual_path.open(encoding="utf-8") as stream:
+                rows = list(csv.DictReader(stream))
+            columns = [*BEHAVIORAL_CSV_SCHEMAS["annual_behavior.csv"], "private_note"]
+            with annual_path.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=columns)
+                writer.writeheader()
+                for row in rows:
+                    row["private_note"] = secret
+                    writer.writerow(row)
+            data = load_dashboard_data(directory)
+            loaded = (data.behavioral_csv_files or {})["annual_behavior.csv"]
+            self.assertTrue(loaded.available)
+            self.assertNotIn("private_note", loaded.rows[0])
+            rendered = str(build_patterns_view_model(data))
+            self.assertNotIn(secret, rendered)
+            self.assertNotIn("private_note", rendered)
+
+    def test_behavioral_malformed_numeric_fails_before_rendering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self._copy_behavioral_demo(directory)
+            path = Path(directory) / "behavioral_summary.json"
+            summary = json.loads(path.read_text(encoding="utf-8"))
+            summary["high_confidence_trade_count"] = "not-count"
+            path.write_text(json.dumps(summary), encoding="utf-8")
+            with self.assertRaises(DashboardValidationError) as context:
+                load_validated_dashboard_data(directory)
+            issue = self._issue_for(context.exception, "high_confidence_trade_count")
+            self.assertEqual(issue.filename, "behavioral_summary.json")
+            self.assertEqual(issue.reason, "malformed value")
+
+    def test_behavioral_ranked_findings_use_high_confidence_only_and_suppress_low(self):
+        data = load_dashboard_data(DEMO_DATA_DIR)
+        model = build_patterns_view_model(data)
+        cards = model["priority_patterns"] + model["what_helped"] + model["what_hurt"]
+        self.assertTrue(cards)
+        self.assertTrue(all(card["confidence"] in {"Medium", "High"} for card in cards))
+        self.assertNotIn("Short-window re-entry evidence was limited", str(cards))
+        self.assertLessEqual(len(model["what_hurt"]), 3)
+        self.assertLessEqual(len(model["what_helped"]), 3)
+
+    def test_behavioral_missing_data_state_is_safe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data = load_dashboard_data(directory)
+            with self.assertRaises(PatternValidationError) as context:
+                build_patterns_view_model(data)
+            self.assertTrue(context.exception.issues)
+            self.assertNotIn(str(directory), str(context.exception.issues))
+
+    def test_behavioral_zero_and_unavailable_values_are_distinct(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self._copy_behavioral_demo(directory)
+            path = Path(directory) / "activity_behavior.csv"
+            with path.open(encoding="utf-8") as stream:
+                rows = list(csv.DictReader(stream))
+            rows[0]["average_pnl"] = ""
+            rows[1]["net_pnl"] = "0"
+            with path.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=BEHAVIORAL_CSV_SCHEMAS["activity_behavior.csv"])
+                writer.writeheader()
+                writer.writerows(rows)
+            model = build_patterns_view_model(load_dashboard_data(directory))
+            activity = model["charts"]["monthly_activity"]
+            self.assertIsNone(activity[0]["Average P&L"])
+            self.assertEqual(activity[1]["Net P&L"], Decimal("0"))
+
+    def test_behavioral_view_model_has_no_instrument_identifiers_or_codes(self):
+        rendered = str(build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))).casefold()
+        for marker in ("instrument_", "security_key", "option_cusip", "structural_key", "equity:", "option:", "cusip", "insight_code"):
+            self.assertNotIn(marker, rendered)
+        self.assertNotIn("buy ", rendered)
+        self.assertNotIn("sell ", rendered)
+        self.assertNotIn("recommend", rendered)
+
+    def test_behavioral_guardrails_are_safe_and_ordered(self):
+        model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
+        guardrails = model["guardrails"]
+        self.assertEqual(len(guardrails), 3)
+        self.assertEqual([row["Pattern"] for row in guardrails], [
+            "Overall completed-trade result",
+            "Losses were concentrated",
+            "Losing trades stayed open longer",
+        ])
+        rendered = str(guardrails).lower()
+        self.assertNotIn("buy ", rendered)
+        self.assertNotIn("sell ", rendered)
+        self.assertNotIn("allocation", rendered)
+
+    def test_behavioral_reconciliation_validation_rejects_inconsistent_annual_totals(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self._copy_behavioral_demo(directory)
+            path = Path(directory) / "annual_behavior.csv"
+            with path.open(encoding="utf-8") as stream:
+                rows = list(csv.DictReader(stream))
+            rows[0]["net_pnl"] = "999999"
+            with path.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=BEHAVIORAL_CSV_SCHEMAS["annual_behavior.csv"])
+                writer.writeheader()
+                writer.writerows(rows)
+            with self.assertRaises(PatternValidationError) as context:
+                build_patterns_view_model(load_dashboard_data(directory))
+            self.assertIn("net P&L does not reconcile", str(context.exception.issues))
 
     def test_user_facing_table_column_labels(self):
         data = load_dashboard_data(DEMO_DATA_DIR)
@@ -633,6 +780,7 @@ class DashboardDataTests(unittest.TestCase):
         importlib.import_module("dashboard.data_loader")
         importlib.import_module("dashboard.formatters")
         importlib.import_module("dashboard.pages.overview")
+        importlib.import_module("dashboard.pages.my_patterns")
         importlib.import_module("dashboard.pages.cash_positions")
         importlib.import_module("dashboard.pages.realized_pnl")
         importlib.import_module("dashboard.pages.data_quality")
@@ -666,6 +814,27 @@ class DashboardDataTests(unittest.TestCase):
             writer = csv.DictWriter(stream, fieldnames=columns)
             writer.writeheader()
             writer.writerow({column: row.get(column, "") for column in columns})
+
+    def _write_behavioral_csv_with_columns(
+        self,
+        directory: str,
+        name: str,
+        columns: list[str],
+        row: dict[str, str],
+    ) -> None:
+        path = Path(directory) / "behavioral_insights" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.DictWriter(stream, fieldnames=columns)
+            writer.writeheader()
+            writer.writerow({column: row.get(column, "") for column in columns})
+
+    def _copy_behavioral_demo(self, directory: str) -> None:
+        target = Path(directory)
+        target.mkdir(parents=True, exist_ok=True)
+        for source in BEHAVIORAL_DEMO_DATA_DIR.iterdir():
+            if source.is_file():
+                (target / source.name).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
 
     def _issue_for(self, error: DashboardValidationError, field: str):
         for issue in error.issues:

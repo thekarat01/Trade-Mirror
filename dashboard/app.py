@@ -21,7 +21,7 @@ from dashboard.data_loader import (
     load_dashboard_data,
     load_validated_dashboard_data,
 )
-from dashboard.pages import cash_positions, data_quality, overview, realized_pnl
+from dashboard.pages import cash_positions, data_quality, my_patterns, overview, realized_pnl
 
 
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +30,7 @@ LOGGER = logging.getLogger("trademirror.dashboard")
 PageRenderer = Callable[[Any, DashboardData], None]
 PAGE_DEFINITIONS: tuple[tuple[str, str, PageRenderer], ...] = (
     ("Overview", "overview", overview.render),
+    ("My Patterns", "my-patterns", my_patterns.render),
     ("Cash & Positions", "cash-positions", cash_positions.render),
     ("Realized P&L", "realized-pnl", realized_pnl.render),
     ("Data Quality", "data-quality", data_quality.render),
@@ -169,6 +170,26 @@ def _apply_theme() -> None:
         }
         .tm-loss { color: var(--tm-red); font-weight: 700; }
         .tm-gain { color: var(--tm-emerald); font-weight: 700; }
+        .tm-pattern-card {
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 0.85rem 0.95rem;
+          margin: 0.65rem 0;
+          background: #ffffff;
+        }
+        .tm-pattern-kicker {
+          color: var(--tm-emerald);
+          font-size: 0.78rem;
+          font-weight: 800;
+          margin-bottom: 0.25rem;
+          text-transform: uppercase;
+        }
+        .tm-pattern-title {
+          color: var(--tm-navy);
+          font-size: 1.02rem;
+          font-weight: 800;
+          margin-bottom: 0.35rem;
+        }
         </style>
         """,
         unsafe_allow_html=True,

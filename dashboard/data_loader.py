@@ -12,6 +12,7 @@ from .formatters import parse_decimal
 
 
 DEMO_DATA_DIR = Path(__file__).resolve().parents[1] / "demo" / "dashboard_data"
+BEHAVIORAL_DEMO_DATA_DIR = Path(__file__).resolve().parents[1] / "demo" / "behavioral_data" / "behavioral_insights"
 
 PROHIBITED_OUTPUT_FIELDS = {
     "description_raw",
@@ -152,6 +153,45 @@ CSV_SCHEMAS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+BEHAVIORAL_CSV_SCHEMAS: dict[str, tuple[str, ...]] = {
+    "annual_behavior.csv": (
+        "year",
+        "trade_count",
+        "equity_count",
+        "option_count",
+        "net_pnl",
+        "win_rate",
+        "gross_gains",
+        "gross_losses",
+        "confidence",
+    ),
+    "holding_period_behavior.csv": (
+        "holding_period_bin",
+        "trade_count",
+        "win_rate",
+        "net_pnl",
+    ),
+    "activity_behavior.csv": (
+        "month",
+        "trade_count",
+        "net_pnl",
+        "gross_loss",
+        "win_rate",
+        "average_pnl",
+        "activity_segment",
+    ),
+    "reentry_behavior.csv": (
+        "window_days",
+        "eligible_trade_count",
+        "win_rate",
+        "net_pnl",
+        "comparison_trade_count",
+        "comparison_win_rate",
+        "comparison_net_pnl",
+        "confidence",
+    ),
+}
+
 JSON_FILES = (
     "cash_ledger/cash_ledger_summary.json",
     "cash_ledger/cash_ledger_review.json",
@@ -161,6 +201,13 @@ JSON_FILES = (
     "realized_pnl/equity_lot_review.json",
     "option_realized_pnl/option_realized_summary.json",
     "option_realized_pnl/option_lot_review.json",
+)
+
+BEHAVIORAL_JSON_FILES = (
+    "behavioral_summary.json",
+    "insight_candidates.json",
+    "ranked_insights.json",
+    "insight_validation.json",
 )
 
 REQUIRED = "required"
@@ -292,6 +339,53 @@ JSON_VALUE_SCHEMAS: dict[str, Mapping[str, tuple[str, str]]] = {
     },
 }
 
+BEHAVIORAL_CSV_VALUE_SCHEMAS: dict[str, Mapping[str, tuple[str, str]]] = {
+    "annual_behavior.csv": {
+        "year": ("count", REQUIRED),
+        "trade_count": ("count", REQUIRED),
+        "equity_count": ("count", REQUIRED),
+        "option_count": ("count", REQUIRED),
+        "net_pnl": ("currency", REQUIRED),
+        "win_rate": ("percentage", REQUIRED),
+        "gross_gains": ("currency", REQUIRED),
+        "gross_losses": ("currency", REQUIRED),
+    },
+    "holding_period_behavior.csv": {
+        "trade_count": ("count", REQUIRED),
+        "win_rate": ("percentage", REQUIRED),
+        "net_pnl": ("currency", REQUIRED),
+    },
+    "activity_behavior.csv": {
+        "trade_count": ("count", REQUIRED),
+        "net_pnl": ("currency", REQUIRED),
+        "gross_loss": ("currency", REQUIRED),
+        "win_rate": ("percentage", REQUIRED),
+        "average_pnl": ("currency", OPTIONAL),
+    },
+    "reentry_behavior.csv": {
+        "window_days": ("count", REQUIRED),
+        "eligible_trade_count": ("count", REQUIRED),
+        "win_rate": ("percentage", REQUIRED),
+        "net_pnl": ("currency", REQUIRED),
+        "comparison_trade_count": ("count", REQUIRED),
+        "comparison_win_rate": ("percentage", REQUIRED),
+        "comparison_net_pnl": ("currency", REQUIRED),
+    },
+}
+
+BEHAVIORAL_JSON_VALUE_SCHEMAS: dict[str, Mapping[str, tuple[str, str]]] = {
+    "behavioral_summary.json": {
+        "high_confidence_trade_count": ("count", REQUIRED),
+        "limited_confidence_trade_count": ("count", REQUIRED),
+        "excluded_match_count": ("count", REQUIRED),
+    },
+    "insight_validation.json": {
+        "candidate_count": ("count", REQUIRED),
+        "high_confidence_trade_count": ("count", REQUIRED),
+        "limited_confidence_trade_count": ("count", REQUIRED),
+    },
+}
+
 
 @dataclass(frozen=True)
 class LoadedFile:
@@ -328,13 +422,18 @@ class DashboardData:
     root: Path
     csv_files: Mapping[str, LoadedFile]
     json_files: Mapping[str, LoadedFile]
+    behavioral_root: Path | None = None
+    behavioral_csv_files: Mapping[str, LoadedFile] | None = None
+    behavioral_json_files: Mapping[str, LoadedFile] | None = None
     source_label: str = "Demo data"
     validation_issues: tuple[ValidationIssue, ...] = ()
 
     @property
     def errors(self) -> tuple[str, ...]:
         messages: list[str] = []
-        for file in [*self.csv_files.values(), *self.json_files.values()]:
+        behavioral_csv = self.behavioral_csv_files or {}
+        behavioral_json = self.behavioral_json_files or {}
+        for file in [*self.csv_files.values(), *self.json_files.values(), *behavioral_csv.values(), *behavioral_json.values()]:
             if file.error:
                 messages.append(f"{file.path}: {file.error}")
         return tuple(messages)
@@ -344,8 +443,36 @@ def load_dashboard_data(root: str | Path = DEMO_DATA_DIR, *, source_label: str =
     base = Path(root)
     csv_files = {name: _load_csv(base, name, columns) for name, columns in CSV_SCHEMAS.items()}
     json_files = {name: _load_json(base, name) for name in JSON_FILES}
+    behavioral_base = _behavioral_base(base)
+    behavioral_csv_files = {name: _load_csv(behavioral_base, name, columns) for name, columns in BEHAVIORAL_CSV_SCHEMAS.items()}
+    behavioral_json_files = {name: _load_json(behavioral_base, name) for name in BEHAVIORAL_JSON_FILES}
     issues = _validate_loaded_values(csv_files, json_files)
-    return DashboardData(root=base, csv_files=csv_files, json_files=json_files, source_label=source_label, validation_issues=issues)
+    issues += _validate_loaded_values(
+        behavioral_csv_files,
+        behavioral_json_files,
+        csv_value_schemas=BEHAVIORAL_CSV_VALUE_SCHEMAS,
+        json_value_schemas=BEHAVIORAL_JSON_VALUE_SCHEMAS,
+        json_currency_sections=(),
+    )
+    return DashboardData(
+        root=base,
+        csv_files=csv_files,
+        json_files=json_files,
+        behavioral_root=behavioral_base,
+        behavioral_csv_files=behavioral_csv_files,
+        behavioral_json_files=behavioral_json_files,
+        source_label=source_label,
+        validation_issues=issues,
+    )
+
+
+def _behavioral_base(base: Path) -> Path:
+    if base.resolve() == DEMO_DATA_DIR.resolve():
+        return BEHAVIORAL_DEMO_DATA_DIR
+    for candidate in (base / "behavioral_insights", base):
+        if (candidate / "behavioral_summary.json").exists():
+            return candidate
+    return base / "behavioral_insights"
 
 
 def load_validated_dashboard_data(root: str | Path = DEMO_DATA_DIR, *, source_label: str = "Demo data") -> DashboardData:
@@ -405,7 +532,8 @@ def _load_json(base: Path, name: str) -> LoadedFile:
 
 def _contains_prohibited_key(value: Any) -> bool:
     if isinstance(value, Mapping):
-        if PROHIBITED_OUTPUT_FIELDS.intersection(str(key) for key in value):
+        prohibited = {_normalize_header(field) for field in PROHIBITED_OUTPUT_FIELDS}
+        if prohibited.intersection(_normalize_header(str(key)) for key in value):
             return True
         return any(_contains_prohibited_key(child) for child in value.values())
     if isinstance(value, list):
@@ -416,22 +544,26 @@ def _contains_prohibited_key(value: Any) -> bool:
 def _validate_loaded_values(
     csv_files: Mapping[str, LoadedFile],
     json_files: Mapping[str, LoadedFile],
+    *,
+    csv_value_schemas: Mapping[str, Mapping[str, tuple[str, str]]] = CSV_VALUE_SCHEMAS,
+    json_value_schemas: Mapping[str, Mapping[str, tuple[str, str]]] = JSON_VALUE_SCHEMAS,
+    json_currency_sections: tuple[str, ...] = ("realized_pnl_by_year", "realized_pnl_by_security", "realized_pnl_by_underlying", "realized_pnl_by_option_type", "realized_pnl_by_outcome", "realized_pnl_by_side"),
 ) -> tuple[ValidationIssue, ...]:
     issues: list[ValidationIssue] = []
-    for name, schema in CSV_VALUE_SCHEMAS.items():
+    for name, schema in csv_value_schemas.items():
         loaded = csv_files.get(name)
         if not loaded or not loaded.available:
             continue
         for row_number, row in enumerate(loaded.rows, start=2):
             for field, (value_type, requirement) in schema.items():
                 issues.extend(_validate_value(name, field, row.get(field), value_type, requirement, f"row {row_number}"))
-    for name, schema in JSON_VALUE_SCHEMAS.items():
+    for name, schema in json_value_schemas.items():
         loaded = json_files.get(name)
         if not loaded or not loaded.available or loaded.data is None:
             continue
         for field, (value_type, requirement) in schema.items():
             issues.extend(_validate_value(name, field, loaded.data.get(field), value_type, requirement, "summary"))
-        for section in ("realized_pnl_by_year", "realized_pnl_by_security", "realized_pnl_by_underlying", "realized_pnl_by_option_type", "realized_pnl_by_outcome", "realized_pnl_by_side"):
+        for section in json_currency_sections:
             values = loaded.data.get(section)
             if not isinstance(values, Mapping):
                 continue
@@ -492,6 +624,19 @@ def csv_rows(data: DashboardData, name: str) -> tuple[dict[str, str], ...]:
 
 def json_data(data: DashboardData, name: str) -> Mapping[str, Any]:
     loaded = data.json_files.get(name)
+    if not loaded or not loaded.available or not loaded.data:
+        return {}
+    return loaded.data
+
+
+def behavioral_csv_rows(data: DashboardData, name: str) -> tuple[dict[str, str], ...]:
+    files = data.behavioral_csv_files or {}
+    return files.get(name, LoadedFile(name, False)).rows
+
+
+def behavioral_json_data(data: DashboardData, name: str) -> Mapping[str, Any]:
+    files = data.behavioral_json_files or {}
+    loaded = files.get(name)
     if not loaded or not loaded.available or not loaded.data:
         return {}
     return loaded.data
