@@ -46,21 +46,25 @@ def main() -> None:
     )
     _apply_theme()
     data = _load_data()
-    if data.validation_issues:
-        _render_validation_error(data.validation_issues)
-        return
     st.navigation(build_pages(data)).run()
 
 
 def build_pages(data: DashboardData, streamlit_module: Any = st) -> list[Any]:
     return [
         streamlit_module.Page(
-            partial(renderer, streamlit_module, data),
+            partial(_render_page, renderer, streamlit_module, data),
             title=title,
             url_path=url_path,
         )
         for title, url_path, renderer in PAGE_DEFINITIONS
     ]
+
+
+def _render_page(renderer: PageRenderer, streamlit_module: Any, data: DashboardData) -> None:
+    if data.validation_issues:
+        _render_validation_error(data.validation_issues, streamlit_module=streamlit_module)
+        return
+    renderer(streamlit_module, data)
 
 
 def _load_data() -> DashboardData:
@@ -94,10 +98,10 @@ def _configured_data_root() -> Path:
     return Path(os.environ.get("TRADEMIRROR_DASHBOARD_DATA", str(DEMO_DATA_DIR)))
 
 
-def _render_validation_error(issues: tuple[ValidationIssue, ...]) -> None:
-    st.error("TradeMirror couldn’t display this data because one or more calculated values are invalid.")
-    st.subheader("Data Quality")
-    st.write("Review the generated sanitized outputs and rerun the dashboard after correcting the affected file.")
+def _render_validation_error(issues: tuple[ValidationIssue, ...], *, streamlit_module: Any = st) -> None:
+    streamlit_module.error("TradeMirror couldn’t display this data because one or more calculated values are invalid.")
+    streamlit_module.subheader("Data Quality")
+    streamlit_module.write("Review the generated sanitized outputs and rerun the dashboard after correcting the affected file.")
     rows = [
         {
             "file": issue.filename,
@@ -107,7 +111,7 @@ def _render_validation_error(issues: tuple[ValidationIssue, ...]) -> None:
         }
         for issue in issues[:20]
     ]
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    streamlit_module.dataframe(rows, use_container_width=True, hide_index=True)
 
 
 def _apply_theme() -> None:

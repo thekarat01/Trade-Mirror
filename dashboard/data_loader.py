@@ -555,8 +555,7 @@ def _validate_loaded_values(
         if not loaded or not loaded.available:
             continue
         for row_number, row in enumerate(loaded.rows, start=2):
-            for field, (value_type, requirement) in schema.items():
-                issues.extend(_validate_value(name, field, row.get(field), value_type, requirement, f"row {row_number}"))
+            issues.extend(_validate_row_values(name, row, schema, f"row {row_number}"))
     for name, schema in json_value_schemas.items():
         loaded = json_files.get(name)
         if not loaded or not loaded.available or loaded.data is None:
@@ -570,6 +569,42 @@ def _validate_loaded_values(
             for key, value in values.items():
                 issues.extend(_validate_value(name, f"{section}.{key}", value, "currency", REQUIRED, "summary"))
     return tuple(issues)
+
+
+def _validate_row_values(
+    filename: str,
+    row: Mapping[str, Any],
+    schema: Mapping[str, tuple[str, str]],
+    location: str,
+) -> tuple[ValidationIssue, ...]:
+    issues: list[ValidationIssue] = []
+    for field, (value_type, requirement) in schema.items():
+        adjusted_requirement = requirement
+        if _is_conditionally_unavailable_rate(filename, field, row):
+            adjusted_requirement = OPTIONAL
+        issues.extend(_validate_value(filename, field, row.get(field), value_type, adjusted_requirement, location))
+    return tuple(issues)
+
+
+def _is_conditionally_unavailable_rate(filename: str, field: str, row: Mapping[str, Any]) -> bool:
+    if field not in {"win_rate", "comparison_win_rate"}:
+        return False
+    denominator_field = "comparison_trade_count" if field == "comparison_win_rate" else _rate_denominator_field(filename)
+    if not denominator_field:
+        return False
+    try:
+        denominator = parse_decimal(row.get(denominator_field))
+    except ValueError:
+        return False
+    return denominator == Decimal("0")
+
+
+def _rate_denominator_field(filename: str) -> str:
+    if filename in {"annual_behavior.csv", "holding_period_behavior.csv", "activity_behavior.csv"}:
+        return "trade_count"
+    if filename == "reentry_behavior.csv":
+        return "eligible_trade_count"
+    return ""
 
 
 def _validate_value(

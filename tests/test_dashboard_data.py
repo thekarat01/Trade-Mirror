@@ -573,6 +573,39 @@ class DashboardDataTests(unittest.TestCase):
         self.assertEqual([page.url_path for page in pages], ["overview", "my-patterns", "cash-positions", "realized-pnl", "data-quality"])
         self.assertEqual(len({page.url_path for page in pages}), 5)
 
+    def test_navigation_remains_custom_during_validation_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "realized_pnl"
+            path.mkdir()
+            (path / "equity_realized_summary.json").write_text(
+                json.dumps({"net_realized_pnl": "not-money"}),
+                encoding="utf-8",
+            )
+            fake_streamlit = _FakeStreamlit(directory)
+            previous = sys.modules.get("streamlit")
+            previous_root = os.environ.get("TRADEMIRROR_DASHBOARD_DATA")
+            sys.modules["streamlit"] = fake_streamlit
+            os.environ["TRADEMIRROR_DASHBOARD_DATA"] = directory
+            sys.modules.pop("dashboard.app", None)
+            try:
+                app = importlib.import_module("dashboard.app")
+                app.main()
+            finally:
+                sys.modules.pop("dashboard.app", None)
+                if previous_root is None:
+                    os.environ.pop("TRADEMIRROR_DASHBOARD_DATA", None)
+                else:
+                    os.environ["TRADEMIRROR_DASHBOARD_DATA"] = previous_root
+                if previous is None:
+                    sys.modules.pop("streamlit", None)
+                else:
+                    sys.modules["streamlit"] = previous
+            self.assertEqual(fake_streamlit.navigation_titles, ["Overview", "My Patterns", "Cash & Positions", "Realized P&L", "Data Quality"])
+            self.assertEqual(fake_streamlit.navigation_paths, ["overview", "my-patterns", "cash-positions", "realized-pnl", "data-quality"])
+            self.assertNotIn("app", {title.casefold() for title in fake_streamlit.navigation_titles})
+            self.assertNotIn("common", {title.casefold() for title in fake_streamlit.navigation_titles})
+            self.assertTrue(fake_streamlit.errors)
+
     def test_behavioral_demo_outputs_load_and_reconcile(self):
         data = load_dashboard_data(DEMO_DATA_DIR)
         self.assertEqual(data.behavioral_root, BEHAVIORAL_DEMO_DATA_DIR)
@@ -679,6 +712,57 @@ class DashboardDataTests(unittest.TestCase):
             activity = model["charts"]["monthly_activity"]
             self.assertIsNone(activity[0]["Average P&L"])
             self.assertEqual(activity[1]["Net P&L"], Decimal("0"))
+
+    def test_behavioral_blank_win_rate_is_allowed_when_denominator_is_zero(self):
+        data = load_validated_dashboard_data(DEMO_DATA_DIR)
+        holding = [
+            row for row in (data.behavioral_csv_files or {})["holding_period_behavior.csv"].rows
+            if row["holding_period_bin"] == "more_than_90_days"
+        ][0]
+        self.assertEqual(holding["trade_count"], "0")
+        self.assertEqual(holding["win_rate"], "")
+        model = build_patterns_view_model(data)
+        unavailable = [
+            row for row in model["charts"]["holding_period_results"]
+            if row["Holding period"] == "More than 90 days"
+        ][0]
+        self.assertIsNone(unavailable["Win rate"])
+        self.assertEqual(unavailable["Net P&L"], Decimal("0"))
+
+    def test_behavioral_blank_win_rate_is_rejected_when_denominator_is_positive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self._copy_behavioral_demo(directory)
+            path = Path(directory) / "holding_period_behavior.csv"
+            with path.open(encoding="utf-8") as stream:
+                rows = list(csv.DictReader(stream))
+            rows[0]["trade_count"] = "1"
+            rows[0]["win_rate"] = ""
+            with path.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=BEHAVIORAL_CSV_SCHEMAS["holding_period_behavior.csv"])
+                writer.writeheader()
+                writer.writerows(rows)
+            with self.assertRaises(DashboardValidationError) as context:
+                load_validated_dashboard_data(directory)
+            issue = self._issue_for(context.exception, "win_rate")
+            self.assertEqual(issue.filename, "holding_period_behavior.csv")
+            self.assertEqual(issue.reason, "required value missing")
+
+    def test_behavioral_required_base_values_remain_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self._copy_behavioral_demo(directory)
+            path = Path(directory) / "holding_period_behavior.csv"
+            with path.open(encoding="utf-8") as stream:
+                rows = list(csv.DictReader(stream))
+            rows[0]["trade_count"] = ""
+            rows[0]["win_rate"] = ""
+            with path.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=BEHAVIORAL_CSV_SCHEMAS["holding_period_behavior.csv"])
+                writer.writeheader()
+                writer.writerows(rows)
+            with self.assertRaises(DashboardValidationError) as context:
+                load_validated_dashboard_data(directory)
+            issue = self._issue_for(context.exception, "trade_count")
+            self.assertEqual(issue.reason, "required value missing")
 
     def test_behavioral_view_model_has_no_instrument_identifiers_or_codes(self):
         rendered = str(build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))).casefold()
@@ -875,6 +959,8 @@ class _FakeStreamlit(types.ModuleType):
         self.markdowns: list[str] = []
         self.titles: list[str] = []
         self.captions: list[str] = []
+        self.navigation_titles: list[str] = []
+        self.navigation_paths: list[str] = []
 
     def set_page_config(self, **_kwargs) -> None:
         return None
@@ -902,6 +988,11 @@ class _FakeStreamlit(types.ModuleType):
 
     def Page(self, page: object, *, title: str, url_path: str):
         return types.SimpleNamespace(page=page, title=title, url_path=url_path)
+
+    def navigation(self, pages: list[object]):
+        self.navigation_titles = [page.title for page in pages]
+        self.navigation_paths = [page.url_path for page in pages]
+        return types.SimpleNamespace(run=lambda: pages[0].page())
 
 
 class _DashboardDataStub:

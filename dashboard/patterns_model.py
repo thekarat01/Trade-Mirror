@@ -267,7 +267,7 @@ def _holding_rows(data: DashboardData) -> list[dict[str, Any]]:
             "Holding period": _holding_label(row.get("holding_period_bin", "")),
             "Trade count": int(parse_decimal(row.get("trade_count")) or Decimal("0")),
             "Net P&L": parse_decimal(row.get("net_pnl")) or Decimal("0"),
-            "Win rate": parse_decimal(row.get("win_rate")) or Decimal("0"),
+            "Win rate": parse_decimal(row.get("win_rate")),
         }
         for row in behavioral_csv_rows(data, "holding_period_behavior.csv")
     ]
@@ -292,6 +292,7 @@ def _activity_rows(data: DashboardData) -> list[dict[str, Any]]:
             "Average P&L": parse_decimal(row.get("average_pnl")),
             "Net P&L": parse_decimal(row.get("net_pnl")) or Decimal("0"),
             "Trade count": int(parse_decimal(row.get("trade_count")) or Decimal("0")),
+            "Win rate": parse_decimal(row.get("win_rate")),
             "Activity segment": "High activity" if row.get("activity_segment") == "high_activity" else "Other months",
         }
         for row in behavioral_csv_rows(data, "activity_behavior.csv")
