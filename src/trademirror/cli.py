@@ -20,6 +20,7 @@ from .position_ledger import (
     load_position_anchors,
     write_position_ledger_outputs,
 )
+from .trusted_trades import build_trusted_trade_dataset, write_trusted_trade_outputs
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -64,6 +65,13 @@ def build_parser() -> argparse.ArgumentParser:
     option_realized_pnl.add_argument("--output-dir", type=Path, required=True)
     option_realized_pnl.add_argument("--as-of", type=date.fromisoformat)
     option_realized_pnl.add_argument("--anchors", type=Path)
+    trusted_trades = commands.add_parser(
+        "trusted-trades",
+        help="Classify completed realized-P&L lots by confidence",
+    )
+    trusted_trades.add_argument("--equity-dir", type=Path, required=True)
+    trusted_trades.add_argument("--option-dir", type=Path, required=True)
+    trusted_trades.add_argument("--output-dir", type=Path, required=True)
     return parser
 
 
@@ -124,6 +132,18 @@ def main() -> None:
         print(f"Option basis transfers: {result['summary']['basis_transfer_count']}")
         print(f"Net option realized P&L: {result['summary']['net_realized_pnl']}")
         print(f"Review issues: {result['summary']['review_count']}")
+        print(f"Output directory: {args.output_dir}")
+    elif args.command == "trusted-trades":
+        result = build_trusted_trade_dataset(
+            equity_dir=args.equity_dir,
+            option_dir=args.option_dir,
+        )
+        write_trusted_trade_outputs(result, args.output_dir)
+        coverage = result["coverage_summary"]["confidence"]
+        print(f"Completed matches evaluated: {result['coverage_summary']['total_completed_matches_evaluated']}")
+        print(f"High confidence: {coverage['high_confidence']['count']}")
+        print(f"Limited confidence: {coverage['limited_confidence']['count']}")
+        print(f"Excluded: {coverage['excluded']['count']}")
         print(f"Output directory: {args.output_dir}")
 
 

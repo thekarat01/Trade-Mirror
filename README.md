@@ -36,6 +36,10 @@ trademirror realized-pnl path/to/robinhood.csv \
 trademirror option-realized-pnl path/to/robinhood.csv \
   --output-dir private_output/option_realized_pnl \
   --as-of 2026-08-19
+trademirror trusted-trades \
+  --equity-dir private_output/realized_pnl \
+  --option-dir private_output/option_realized_pnl \
+  --output-dir private_output/trusted_trade_baseline
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
@@ -59,6 +63,10 @@ trademirror realized-pnl path\to\robinhood.csv `
 trademirror option-realized-pnl path\to\robinhood.csv `
   --output-dir private_output\option_realized_pnl `
   --as-of 2026-08-19
+trademirror trusted-trades `
+  --equity-dir private_output\realized_pnl `
+  --option-dir private_output\option_realized_pnl `
+  --output-dir private_output\trusted_trade_baseline
 $env:PYTHONPATH = "src"
 py -3.11 -m unittest discover -s tests -v
 ```
@@ -117,12 +125,19 @@ basis-transfer records instead of standalone option P&L. Spreads, tax treatment,
 wash sales, exercise/assignment stock-basis linkage, short-option strategy ROI,
 and market data are deferred.
 
+Trusted-trade outputs are sanitized by default. `trademirror trusted-trades`
+classifies completed equity and option lot matches as high confidence, limited
+confidence, or excluded so later behavioral analysis can use only deterministic
+inputs. It uses opaque stable instrument identifiers and does not expose raw
+CUSIPs, raw descriptions, raw-row JSON, account identifiers, or behavioral
+conclusions.
+
 ## Repository map
 
 - `src/trademirror/`: importer, schema, ledgers, CLI, and reconciliation logic
 - `tests/`: privacy-safe synthetic fixtures and automated tests
-- `docs/`: product, data-contract, cash-ledger, position-ledger, and
-  realized-P&L documentation
+- `docs/`: product, data-contract, cash-ledger, position-ledger, realized-P&L,
+  and trusted-trade documentation
 - `dashboard/`: optional local Streamlit dashboard for sanitized outputs
 - `demo/dashboard_data/`: sanitized synthetic dashboard output bundle
 - `reports/`: sanitized validation summaries only
