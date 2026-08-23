@@ -23,7 +23,7 @@ def equity_record(
     amount,
     *,
     instrument="ACME",
-    cusip="123456789",
+    cusip="037833100",
     family="trade",
     asset_type="equity",
     review_status="validated",
@@ -162,7 +162,7 @@ class EquityRealizedPnlTests(unittest.TestCase):
         issue = result["review"]["issues"][0]
         self.assertEqual(issue["source_row_id"], "1")
         self.assertEqual(issue["trade_date"], "2021-01-02")
-        self.assertEqual(issue["security_key"], "equity:123456789")
+        self.assertEqual(issue["security_key"], "equity:037833100")
         self.assertEqual(issue["sale_quantity"], "3")
         self.assertEqual(issue["available_quantity"], "0")
         self.assertEqual(issue["unmatched_quantity"], "3")
@@ -218,7 +218,7 @@ class EquityRealizedPnlTests(unittest.TestCase):
         anchors = [{
             "anchor_date": "2021-01-01",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "5",
         }]
@@ -235,7 +235,7 @@ class EquityRealizedPnlTests(unittest.TestCase):
         anchors = [{
             "anchor_date": "2021-02-01",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "100",
         }]
@@ -245,13 +245,15 @@ class EquityRealizedPnlTests(unittest.TestCase):
         ], as_of=date(2021, 1, 31), anchors=anchors)
         self.assertEqual(result["matches"], [])
         self.assertEqual(result["open_lots"][0]["remaining_quantity"], "2")
-        self.assertEqual(result["summary"]["anchor_count"], 1)
+        self.assertEqual(result["summary"]["anchor_count"], 0)
+        self.assertEqual(result["anchor_validation"]["anchors"][0]["status"], "rejected_future_dated")
+        self.assertIn("future_anchor_after_as_of", json.dumps(result["review"], sort_keys=True))
 
     def test_applicable_anchor_after_final_transaction_creates_unknown_basis_lot(self):
         anchors = [{
             "anchor_date": "2021-01-10",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "5",
         }]
@@ -267,7 +269,7 @@ class EquityRealizedPnlTests(unittest.TestCase):
         anchors = [{
             "anchor_date": "2021-01-10",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "5",
         }]
@@ -280,7 +282,7 @@ class EquityRealizedPnlTests(unittest.TestCase):
         anchors = [{
             "anchor_date": "2021-02-01",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "5",
         }]
@@ -311,7 +313,7 @@ class EquityRealizedPnlTests(unittest.TestCase):
         anchors = [{
             "anchor_date": "2021-01-01",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "5",
         }]

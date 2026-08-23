@@ -8,6 +8,12 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from .equity_identity import (
+    anchor_resolution_review_issues,
+    is_accepted_equity_anchor_status,
+    resolve_equity_anchors,
+)
+
 
 POSITION_EVENT_FIELDS = [
     "source_row_id",
@@ -97,10 +103,13 @@ def build_position_ledger(
     as_of: date | None = None,
     anchors: Iterable[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
-    parsed_anchors, anchor_review = _parse_anchors(anchors, as_of=as_of)
+    record_list = list(records)
+    resolution = resolve_equity_anchors(anchors, record_list, as_of=as_of)
+    parsed_anchors, anchor_review = _parse_anchors(resolution["anchors"], as_of=as_of)
     events: list[dict[str, Any]] = []
     pending_settlement: list[dict[str, str]] = []
     review_issues: list[dict[str, str]] = list(anchor_review)
+    review_issues.extend(anchor_resolution_review_issues(resolution["report"]))
 
     match_state: dict[str, dict[str, Any]] = {}
     applicable_anchors = sorted(
@@ -113,7 +122,7 @@ def build_position_ledger(
     next_anchor = 0
     anchor_events = _anchor_events(parsed_anchors)
     ordered_records = sorted(
-        records,
+        record_list,
         key=lambda record: (
             str(record.get("activity_date") or ""),
             str(record.get("settle_date") or ""),
@@ -158,6 +167,10 @@ def build_position_ledger(
         "review": {
             "review_count": len(review_issues),
             "issues": review_issues,
+        },
+        "anchor_validation": {
+            "report_count": len(resolution["report"]),
+            "anchors": resolution["report"],
         },
     }
 
@@ -813,6 +826,9 @@ def _parse_anchors(
             reasons.append("invalid_anchor_date")
         if not quantity_valid:
             reasons.append("invalid_anchor_quantity")
+        resolution_status = str(anchor.get("anchor_resolution_status") or "")
+        if identity["asset_type"] == "equity" and not is_accepted_equity_anchor_status(resolution_status):
+            reasons.append(str(anchor.get("anchor_resolution_reason") or resolution_status or "unaccepted_equity_anchor"))
         if reasons:
             review.append({
                 "anchor_index": str(index),
@@ -825,6 +841,8 @@ def _parse_anchors(
             **identity,
             "anchor_date": anchor_date,
             "quantity": quantity,
+            "anchor_resolution_status": str(anchor.get("anchor_resolution_status") or ""),
+            "anchor_resolution_reason": str(anchor.get("anchor_resolution_reason") or ""),
             "anchor_status": status,
         })
     return parsed, review
@@ -841,7 +859,10 @@ def _anchor_identity(anchor: Mapping[str, Any]) -> dict[str, Any]:
         "option_type": anchor.get("option_type") or "",
         "option_strike": anchor.get("option_strike") or anchor.get("strike") or "",
     }
-    return _security_identity(row)
+    identity = _security_identity(row)
+    if anchor.get("resolved_identity_confidence"):
+        identity["confidence"] = str(anchor.get("resolved_identity_confidence"))
+    return identity
 
 
 def _anchor_events(parsed_anchors: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:

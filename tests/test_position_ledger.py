@@ -22,7 +22,7 @@ def record(
     quantity,
     *,
     instrument="ACME",
-    cusip="123456789",
+    cusip="037833100",
     family=None,
     review_status="validated",
     review_reasons="",
@@ -95,8 +95,8 @@ class PositionLedgerTests(unittest.TestCase):
 
     def summary_position(self, asset_type, trade_quantity, settled_quantity, **overrides):
         row = {
-            "security_key": "option:ACME:2021-01-15:call:7.50" if asset_type == "option" else "equity:123456789",
-            "cusip": "" if asset_type == "option" else "123456789",
+            "security_key": "option:ACME:2021-01-15:call:7.50" if asset_type == "option" else "equity:037833100",
+            "cusip": "" if asset_type == "option" else "037833100",
             "primary_observed_symbol": "ACME",
             "asset_type": asset_type,
             "option_underlying": "ACME" if asset_type == "option" else "",
@@ -119,7 +119,7 @@ class PositionLedgerTests(unittest.TestCase):
             record(1, "2021-01-01", "2021-01-04", "Buy", "buy", "equity", "10"),
             record(2, "2021-01-05", "2021-01-07", "Sell", "sell", "equity", "3"),
         ])
-        position = self.position_by_key(result, "equity:123456789")
+        position = self.position_by_key(result, "equity:037833100")
         self.assertEqual(position["trade_date_quantity"], "7")
         self.assertEqual(position["settled_quantity"], "7")
         self.assertEqual(position["review_status"], "validated")
@@ -129,7 +129,7 @@ class PositionLedgerTests(unittest.TestCase):
         result = build_position_ledger([
             record(1, "2021-01-01", "2021-01-04", "Sell", "sell", "equity", "3"),
         ])
-        position = self.position_by_key(result, "equity:123456789")
+        position = self.position_by_key(result, "equity:037833100")
         self.assertEqual(position["trade_date_quantity"], "-3")
         self.assertIn("negative_equity_quantity_requires_review", position["review_reasons"])
         self.assertIn("sale_before_known_opening_position", result["events"][0]["review_reason"])
@@ -138,7 +138,7 @@ class PositionLedgerTests(unittest.TestCase):
         anchors = [{
             "anchor_date": "2021-01-02",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "100",
         }]
@@ -146,7 +146,7 @@ class PositionLedgerTests(unittest.TestCase):
             record(1, "2021-01-01", "2021-01-01", "Sell", "sell", "equity", "10"),
             record(2, "2021-01-03", "2021-01-03", "Buy", "buy", "equity", "5"),
         ], anchors=anchors)
-        position = self.position_by_key(result, "equity:123456789")
+        position = self.position_by_key(result, "equity:037833100")
         self.assertEqual(position["trade_date_quantity"], "105")
         self.assertEqual(position["settled_quantity"], "105")
         self.assertEqual(position["anchor_date"], "2021-01-02")
@@ -156,21 +156,21 @@ class PositionLedgerTests(unittest.TestCase):
         anchors = [{
             "anchor_date": "2021-01-02",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "100",
         }]
         result = build_position_ledger([
             record(1, "2021-01-02", "2021-01-02", "Buy", "buy", "equity", "5"),
         ], anchors=anchors)
-        position = self.position_by_key(result, "equity:123456789")
+        position = self.position_by_key(result, "equity:037833100")
         self.assertEqual(position["trade_date_quantity"], "105")
         self.assertEqual(position["settled_quantity"], "105")
         history = {
             (row["date"], row["security_key"]): row
             for row in result["history"]
         }
-        anchor_day = history[("2021-01-02", "equity:123456789")]
+        anchor_day = history[("2021-01-02", "equity:037833100")]
         self.assertEqual(anchor_day["trade_date_quantity"], "105")
         self.assertEqual(anchor_day["settled_quantity"], "105")
         self.assertEqual(anchor_day["confidence"], "verified")
@@ -179,7 +179,7 @@ class PositionLedgerTests(unittest.TestCase):
         anchors = [{
             "anchor_date": "2021-02-01",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "100",
         }]
@@ -188,10 +188,13 @@ class PositionLedgerTests(unittest.TestCase):
             as_of=date(2021, 1, 31),
             anchors=anchors,
         )
-        position = self.position_by_key(result, "equity:123456789")
+        position = self.position_by_key(result, "equity:037833100")
         self.assertEqual(position["trade_date_quantity"], "1")
         self.assertEqual(position["anchor_date"], "")
-        self.assertEqual(result["summary"]["future_anchor_count"], 1)
+        self.assertEqual(result["summary"]["anchor_count"], 0)
+        self.assertEqual(result["summary"]["future_anchor_count"], 0)
+        self.assertEqual(result["anchor_validation"]["anchors"][0]["status"], "rejected_future_dated")
+        self.assertIn("future_anchor_after_as_of", json.dumps(result["review"], sort_keys=True))
         self.assertTrue(all(row["date"] <= "2021-01-31" for row in result["history"]))
 
     def test_cusip_identity_preserves_aliases_and_distinguishes_same_ticker(self):
@@ -572,7 +575,7 @@ class PositionLedgerTests(unittest.TestCase):
                     "source_row_id": 1,
                     "activity_date": date(2021, 1, 1),
                     "settle_date": date(2021, 1, 1),
-                    "security_key": "equity:123456789",
+                    "security_key": "equity:037833100",
                     "asset_type": "equity",
                     "signed_quantity": Decimal("3"),
                     "position_side": "",
@@ -617,19 +620,19 @@ class PositionLedgerTests(unittest.TestCase):
         anchors = [{
             "anchor_date": "2021-01-01",
             "asset_type": "equity",
-            "cusip": "123456789",
+            "cusip": "037833100",
             "symbol": "ACME",
             "quantity": "3",
         }]
         result = build_position_ledger([
             record(1, "2021-01-02", "2021-01-02", "Sell", "sell", "equity", "5"),
         ], anchors=anchors)
-        position = self.position_by_key(result, "equity:123456789")
+        position = self.position_by_key(result, "equity:037833100")
         self.assertEqual(position["trade_date_quantity"], "3")
         self.assertEqual(position["settled_quantity"], "3")
         self.assertEqual(result["events"], [])
         issue = result["review"]["issues"][0]
-        self.assertEqual(issue["security_key"], "equity:123456789")
+        self.assertEqual(issue["security_key"], "equity:037833100")
         self.assertEqual(issue["anchor_date"], "2021-01-01")
         self.assertEqual(issue["anchor_quantity"], "3")
         self.assertEqual(issue["available_quantity"], "3")
@@ -660,7 +663,7 @@ class PositionLedgerTests(unittest.TestCase):
         result = build_position_ledger([
             record(1, "2021-01-05", "2021-01-08", "Buy", "buy", "equity", "10"),
         ], as_of=date(2021, 1, 6))
-        position = self.position_by_key(result, "equity:123456789")
+        position = self.position_by_key(result, "equity:037833100")
         self.assertEqual(position["trade_date_quantity"], "10")
         self.assertEqual(position["settled_quantity"], "0")
         self.assertEqual(result["pending_settlement"][0]["source_row_id"], "1")
@@ -672,7 +675,7 @@ class PositionLedgerTests(unittest.TestCase):
         ]
         result = build_position_ledger(rows)
         self.assertEqual(len(result["events"]), 2)
-        self.assertEqual(self.position_by_key(result, "equity:123456789")["trade_date_quantity"], "2")
+        self.assertEqual(self.position_by_key(result, "equity:037833100")["trade_date_quantity"], "2")
         self.assertTrue(all(event["review_status"] == "review" for event in result["events"]))
 
     def test_unresolved_split_or_merger_enters_review(self):

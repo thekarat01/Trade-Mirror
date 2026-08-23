@@ -8,6 +8,11 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from .equity_identity import (
+    anchor_resolution_review_issues,
+    resolve_equity_anchors,
+)
+
 from .position_ledger import _parse_anchors, _quantity, _security_identity
 
 
@@ -73,10 +78,13 @@ def build_equity_realized_pnl(
     as_of: date | None = None,
     anchors: Iterable[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
-    parsed_anchors, anchor_review = _parse_anchors(anchors, as_of=as_of)
+    record_list = list(records)
+    resolution = resolve_equity_anchors(anchors, record_list, as_of=as_of)
+    parsed_anchors, anchor_review = _parse_anchors(resolution["anchors"], as_of=as_of)
     review: list[dict[str, str]] = [
         _anchor_review_issue(issue) for issue in anchor_review
     ]
+    review.extend(_anchor_review_issue(issue) for issue in anchor_resolution_review_issues(resolution["report"]))
     lots: dict[str, deque[dict[str, Any]]] = defaultdict(deque)
     security_info: dict[str, dict[str, str]] = {}
     matches: list[dict[str, Any]] = []
@@ -93,7 +101,7 @@ def build_equity_realized_pnl(
     next_anchor = 0
     applied_anchors: set[tuple[str, date]] = set()
     ordered_records = sorted(
-        records,
+        record_list,
         key=lambda record: (
             str(record.get("activity_date") or ""),
             int(record.get("source_row_id") or 0),
@@ -154,6 +162,10 @@ def build_equity_realized_pnl(
         "review": {
             "review_count": len(review),
             "issues": review,
+        },
+        "anchor_validation": {
+            "report_count": len(resolution["report"]),
+            "anchors": resolution["report"],
         },
     }
 
