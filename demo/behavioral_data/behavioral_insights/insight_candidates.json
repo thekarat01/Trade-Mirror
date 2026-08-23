@@ -1,0 +1,144 @@
+{
+  "items": [
+    {
+      "comparison_value": "-5.5",
+      "confidence": "medium",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Set a monthly trading-frequency review threshold and compare outcomes after the month closes.",
+      "eligible_trade_count": 10,
+      "evidence_strength_reason": "high activity is defined by the documented 75th percentile monthly trade-count rule",
+      "finding": "High-activity months were compared with other eligible months without claiming causation.",
+      "finding_type": "hurt",
+      "insight_code": "activity_high_months",
+      "limitation": "Month-level aggregation cannot prove trading frequency caused outcomes.",
+      "metric_value": "-46.75",
+      "rank_score": "3.30004125",
+      "supporting_aggregate_evidence": [
+        "activity_behavior.csv"
+      ]
+    },
+    {
+      "comparison_value": "-578",
+      "confidence": "insufficient_evidence",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Separate options-risk review from long-equity review before evaluating behavior.",
+      "eligible_trade_count": 6,
+      "evidence_strength_reason": "compares asset-type aggregates without recalculating option multipliers",
+      "finding": "Option and equity outcomes differed in the high-confidence completed-trade sample.",
+      "finding_type": "helped",
+      "insight_code": "asset_option_relative_result",
+      "limitation": "Options with basis transfers or unresolved lifecycle events are excluded.",
+      "metric_value": "-225",
+      "rank_score": "0.000353",
+      "supporting_aggregate_evidence": [
+        "behavioral_summary.asset_type"
+      ]
+    },
+    {
+      "comparison_value": "2",
+      "confidence": "medium",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Define an exit condition before entering a trade and review whether losers stay open longer.",
+      "eligible_trade_count": 13,
+      "evidence_strength_reason": "winner and loser median holding periods are calculated from completed trades",
+      "finding": "Losing-trade holding periods were compared with winning-trade holding periods using calendar days.",
+      "finding_type": "hurt",
+      "insight_code": "holding_loser_duration",
+      "limitation": "CSV exports lack intraday ordering, so same-day timing is not inferred.",
+      "metric_value": "10",
+      "rank_score": "3.390008",
+      "supporting_aggregate_evidence": [
+        "holding_period_behavior.csv"
+      ]
+    },
+    {
+      "comparison_value": "5",
+      "confidence": "insufficient_evidence",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Treat small-sample patterns as review prompts, not conclusions.",
+      "eligible_trade_count": 2,
+      "evidence_strength_reason": "sample-size safeguard suppressed the candidate",
+      "finding": "Seven-day same-instrument re-entry analysis did not meet the minimum sample threshold.",
+      "finding_type": "hurt",
+      "insight_code": "insufficient_reentry_7d",
+      "limitation": "Small samples are retained in supporting outputs but not promoted.",
+      "metric_value": "2",
+      "rank_score": "0",
+      "supporting_aggregate_evidence": [
+        "reentry_behavior.csv"
+      ]
+    },
+    {
+      "comparison_value": "gross_losses",
+      "confidence": "medium",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Review whether one loss can erase several typical gains before entering a trade.",
+      "eligible_trade_count": 13,
+      "evidence_strength_reason": "largest-loss concentration is computed from opaque grouped high-confidence trades",
+      "finding": "A small number of losses accounted for a measurable share of gross losses.",
+      "finding_type": "hurt",
+      "insight_code": "loss_concentration_top_losses",
+      "limitation": "Excluded unknown-basis and unmatched records may hide additional losses.",
+      "metric_value": "0.7377777777777777777777777778",
+      "rank_score": "3.39083",
+      "supporting_aggregate_evidence": [
+        "behavioral_summary.loss_concentration"
+      ]
+    },
+    {
+      "comparison_value": "0",
+      "confidence": "medium",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Review realized outcomes separately from deposits, withdrawals, and unresolved records.",
+      "eligible_trade_count": 26,
+      "evidence_strength_reason": "uses only high-confidence completed trades",
+      "finding": "High-confidence completed trades had net realized P&L of -803.",
+      "finding_type": "hurt",
+      "insight_code": "overall_result",
+      "limitation": "Analytical realized P&L is not tax P&L and excludes unresolved trades.",
+      "metric_value": "-803",
+      "rank_score": "3.780803",
+      "supporting_aggregate_evidence": [
+        "behavioral_summary.overall"
+      ]
+    },
+    {
+      "comparison_value": "-693",
+      "confidence": "medium",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Use a cooling-off checklist before quickly re-entering the same instrument after a loss.",
+      "eligible_trade_count": 6,
+      "evidence_strength_reason": "uses only sequence evidence by opaque instrument and calendar date",
+      "finding": "The engine found completed trades opened after a prior loss in the same opaque instrument.",
+      "finding_type": "hurt",
+      "insight_code": "reentry_after_loss_30d",
+      "limitation": "This does not infer intent, emotion, revenge trading, or averaging down.",
+      "metric_value": "-110",
+      "rank_score": "3.18011",
+      "supporting_aggregate_evidence": [
+        "reentry_behavior.csv"
+      ]
+    }
+  ]
+}

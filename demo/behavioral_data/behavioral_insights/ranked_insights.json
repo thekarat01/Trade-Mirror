@@ -1,0 +1,88 @@
+{
+  "priority_guardrails": [
+    {
+      "educational_guardrail": "Review realized outcomes separately from deposits, withdrawals, and unresolved records.",
+      "insight_code": "overall_result",
+      "supporting_aggregate_evidence": [
+        "behavioral_summary.overall"
+      ]
+    },
+    {
+      "educational_guardrail": "Review whether one loss can erase several typical gains before entering a trade.",
+      "insight_code": "loss_concentration_top_losses",
+      "supporting_aggregate_evidence": [
+        "behavioral_summary.loss_concentration"
+      ]
+    },
+    {
+      "educational_guardrail": "Define an exit condition before entering a trade and review whether losers stay open longer.",
+      "insight_code": "holding_loser_duration",
+      "supporting_aggregate_evidence": [
+        "holding_period_behavior.csv"
+      ]
+    }
+  ],
+  "what_helped": [],
+  "what_hurt": [
+    {
+      "comparison_value": "0",
+      "confidence": "medium",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Review realized outcomes separately from deposits, withdrawals, and unresolved records.",
+      "eligible_trade_count": 26,
+      "evidence_strength_reason": "uses only high-confidence completed trades",
+      "finding": "High-confidence completed trades had net realized P&L of -803.",
+      "finding_type": "hurt",
+      "insight_code": "overall_result",
+      "limitation": "Analytical realized P&L is not tax P&L and excludes unresolved trades.",
+      "metric_value": "-803",
+      "rank_score": "3.780803",
+      "supporting_aggregate_evidence": [
+        "behavioral_summary.overall"
+      ]
+    },
+    {
+      "comparison_value": "gross_losses",
+      "confidence": "medium",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Review whether one loss can erase several typical gains before entering a trade.",
+      "eligible_trade_count": 13,
+      "evidence_strength_reason": "largest-loss concentration is computed from opaque grouped high-confidence trades",
+      "finding": "A small number of losses accounted for a measurable share of gross losses.",
+      "finding_type": "hurt",
+      "insight_code": "loss_concentration_top_losses",
+      "limitation": "Excluded unknown-basis and unmatched records may hide additional losses.",
+      "metric_value": "0.7377777777777777777777777778",
+      "rank_score": "3.39083",
+      "supporting_aggregate_evidence": [
+        "behavioral_summary.loss_concentration"
+      ]
+    },
+    {
+      "comparison_value": "2",
+      "confidence": "medium",
+      "date_range": {
+        "end": "2022-02-20",
+        "start": "2021-01-01"
+      },
+      "educational_guardrail": "Define an exit condition before entering a trade and review whether losers stay open longer.",
+      "eligible_trade_count": 13,
+      "evidence_strength_reason": "winner and loser median holding periods are calculated from completed trades",
+      "finding": "Losing-trade holding periods were compared with winning-trade holding periods using calendar days.",
+      "finding_type": "hurt",
+      "insight_code": "holding_loser_duration",
+      "limitation": "CSV exports lack intraday ordering, so same-day timing is not inferred.",
+      "metric_value": "10",
+      "rank_score": "3.390008",
+      "supporting_aggregate_evidence": [
+        "holding_period_behavior.csv"
+      ]
+    }
+  ]
+}

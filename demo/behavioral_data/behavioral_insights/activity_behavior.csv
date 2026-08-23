@@ -1,0 +1,11 @@
+month,trade_count,net_pnl,gross_loss,win_rate,average_pnl,activity_segment
+2021-01,3,-40,70,33.3333,-13.33333333333333333333333333,other
+2021-02,4,-500,540,50,-125,high_activity
+2021-03,4,-120,155,50,-30,high_activity
+2021-04,4,-3,80,75,-0.75,high_activity
+2021-05,2,40,0,100,20,other
+2021-06,4,-125,160,25,-31.25,high_activity
+2021-07,2,-15,40,50,-7.5,other
+2021-08,1,-35,35,0,-35,other
+2022-01,1,40,0,100,40,other
+2022-02,1,-45,45,0,-45,other

@@ -1,0 +1,3 @@
+trade_id,instrument_id,asset_type,open_date,close_date,holding_period_days,matched_quantity,cost_basis,proceeds,realized_pnl,return_percentage,confidence,reason_codes
+trade_101,instrument_limited,equity,2021-01-01,2021-01-02,1,1,100,110,10,10,limited_confidence,potential_identical_fill
+trade_102,instrument_limited,equity,2021-01-01,2021-01-02,1,1,100,95,-5,-5,limited_confidence,potential_identical_fill

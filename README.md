@@ -40,6 +40,9 @@ trademirror trusted-trades \
   --equity-dir private_output/realized_pnl \
   --option-dir private_output/option_realized_pnl \
   --output-dir private_output/trusted_trade_baseline
+trademirror behavioral-insights \
+  --trusted-dir private_output/trusted_trade_baseline \
+  --output-dir private_output/behavioral_insights_baseline
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
@@ -67,6 +70,9 @@ trademirror trusted-trades `
   --equity-dir private_output\realized_pnl `
   --option-dir private_output\option_realized_pnl `
   --output-dir private_output\trusted_trade_baseline
+trademirror behavioral-insights `
+  --trusted-dir private_output\trusted_trade_baseline `
+  --output-dir private_output\behavioral_insights_baseline
 $env:PYTHONPATH = "src"
 py -3.11 -m unittest discover -s tests -v
 ```
@@ -132,12 +138,19 @@ inputs. It uses opaque stable instrument identifiers and does not expose raw
 CUSIPs, raw descriptions, raw-row JSON, account identifiers, or behavioral
 conclusions.
 
+Behavioral-insights outputs are sanitized by default. `trademirror
+behavioral-insights` uses only high-confidence trusted trades for primary
+aggregate patterns, keeps limited-confidence trades in a separate sensitivity
+section, and excludes unresolved records. It describes historical aggregate
+patterns only; it does not predict prices, recommend securities, or generate
+trade instructions.
+
 ## Repository map
 
 - `src/trademirror/`: importer, schema, ledgers, CLI, and reconciliation logic
 - `tests/`: privacy-safe synthetic fixtures and automated tests
 - `docs/`: product, data-contract, cash-ledger, position-ledger, realized-P&L,
-  and trusted-trade documentation
+  trusted-trade, and behavioral-insights documentation
 - `dashboard/`: optional local Streamlit dashboard for sanitized outputs
 - `demo/dashboard_data/`: sanitized synthetic dashboard output bundle
 - `reports/`: sanitized validation summaries only

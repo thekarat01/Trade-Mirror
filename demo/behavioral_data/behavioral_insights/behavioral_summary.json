@@ -1,0 +1,116 @@
+{
+  "asset_type": {
+    "equity": {
+      "average_gain": "24.75",
+      "average_loss": "109.375",
+      "gross_loss_contribution": "875",
+      "net_pnl": "-578",
+      "share_of_overall_included_losses": "0.7777777777777777777777777778",
+      "trade_count": 20,
+      "win_rate": "60"
+    },
+    "option": {
+      "average_gain": "25",
+      "average_loss": "50",
+      "gross_loss_contribution": "250",
+      "net_pnl": "-225",
+      "share_of_overall_included_losses": "0.2222222222222222222222222222",
+      "trade_count": 6,
+      "win_rate": "16.6667"
+    }
+  },
+  "date_range": {
+    "end": "2022-02-20",
+    "start": "2021-01-01"
+  },
+  "excluded_match_count": 2,
+  "high_confidence_trade_count": 26,
+  "holding_period": {
+    "loser_median_days": "10",
+    "losers_generally_held_longer": true,
+    "winner_median_days": "2"
+  },
+  "limitations": [
+    "Behavioral insights describe historical aggregate patterns only.",
+    "High-confidence trades drive primary findings; limited-confidence trades are sensitivity analysis only.",
+    "Excluded trades, unknown-basis matches, unresolved lifecycle events, and basis transfers are not used in primary metrics.",
+    "Excluded completed matches may limit coverage.",
+    "Review items remain in audit outputs and may affect future completeness."
+  ],
+  "limited_confidence_sensitivity": {
+    "combined_high_plus_limited_net_pnl": "-798",
+    "combined_trade_count": 28,
+    "high_confidence_net_pnl": "-803",
+    "kept_separate_from_primary": true,
+    "limited_confidence_trade_count": 2,
+    "net_pnl_direction_stable": true
+  },
+  "limited_confidence_trade_count": 2,
+  "loss_concentration": {
+    "largest_1_loss_share": "0.4444444444444444444444444444",
+    "largest_3_loss_share": "0.6222222222222222222222222222",
+    "largest_5_loss_share": "0.7377777777777777777777777778",
+    "largest_opaque_instrument_loss_share": "0.6222222222222222222222222222",
+    "loss_by_asset_type_and_year": {
+      "equity_2021": "875",
+      "option_2021": "205",
+      "option_2022": "45"
+    },
+    "profitable_trades_required_to_offset_largest_loss": "21"
+  },
+  "methodology": "deterministic_behavioral_insights_v1",
+  "overall": {
+    "average_gain": "24.76923076923076923076923077",
+    "average_gain_to_average_loss_ratio": "0.2862222222222222222222222222",
+    "average_loss": "86.53846153846153846153846154",
+    "gross_gains": "322",
+    "gross_losses": "1125",
+    "maximum_individual_gain_share_of_gross_gains": "0.1242236024844720496894409938",
+    "maximum_individual_loss_share_of_gross_losses": "0.4444444444444444444444444444",
+    "median_gain": "25",
+    "median_loss": "45",
+    "net_realized_pnl": "-803",
+    "profit_factor": "0.2862222222222222222222222222",
+    "trade_count": 26,
+    "win_rate": "50"
+  },
+  "primary_dataset": "high_confidence_trades_only",
+  "reentry_after_loss": {
+    "30_day": {
+      "comparison_net_pnl": "-693",
+      "comparison_trade_count": "20",
+      "comparison_win_rate": "55",
+      "confidence": "medium",
+      "eligible_trade_count": "6",
+      "net_pnl": "-110",
+      "win_rate": "33.3333",
+      "window_days": "30"
+    },
+    "7_day": {
+      "comparison_net_pnl": "-818",
+      "comparison_trade_count": "24",
+      "comparison_win_rate": "50",
+      "confidence": "insufficient_evidence",
+      "eligible_trade_count": "2",
+      "net_pnl": "15",
+      "win_rate": "50",
+      "window_days": "7"
+    }
+  },
+  "sample_requirements": {
+    "activity_months": 5,
+    "overall": 20,
+    "reentry": 5,
+    "segment": 10
+  },
+  "trading_activity": {
+    "eligible_month_count": 10,
+    "high_activity_average_pnl": "-46.75",
+    "high_activity_month_count": 4,
+    "high_activity_threshold_trade_count": "4",
+    "high_activity_trade_count": 16,
+    "other_activity_average_pnl": "-5.5",
+    "other_activity_trade_count": 10,
+    "threshold_rule": "months with trade count at or above nearest-rank 75th percentile"
+  }
+}

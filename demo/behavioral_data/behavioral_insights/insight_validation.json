@@ -1,0 +1,11 @@
+{
+  "candidate_count": 7,
+  "excluded_records_used_in_primary_metrics": false,
+  "high_confidence_pnl_reconciles_to_trusted_dataset": true,
+  "high_confidence_trade_count": 26,
+  "limited_confidence_sensitivity_is_separate": true,
+  "limited_confidence_trade_count": 2,
+  "low_or_insufficient_candidates_promoted": false,
+  "primary_metrics_use_only_high_confidence": true,
+  "privacy_schema_uses_only_opaque_instrument_ids": true
+}

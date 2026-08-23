@@ -5,6 +5,10 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+from .behavioral_insights import (
+    build_behavioral_insights,
+    write_behavioral_insights_outputs,
+)
 from .cash_ledger import build_cash_ledger, write_cash_ledger_outputs
 from .equity_realized_pnl import (
     build_equity_realized_pnl,
@@ -72,6 +76,12 @@ def build_parser() -> argparse.ArgumentParser:
     trusted_trades.add_argument("--equity-dir", type=Path, required=True)
     trusted_trades.add_argument("--option-dir", type=Path, required=True)
     trusted_trades.add_argument("--output-dir", type=Path, required=True)
+    behavioral_insights = commands.add_parser(
+        "behavioral-insights",
+        help="Generate deterministic behavioral insight metrics from trusted trades",
+    )
+    behavioral_insights.add_argument("--trusted-dir", type=Path, required=True)
+    behavioral_insights.add_argument("--output-dir", type=Path, required=True)
     return parser
 
 
@@ -144,6 +154,13 @@ def main() -> None:
         print(f"High confidence: {coverage['high_confidence']['count']}")
         print(f"Limited confidence: {coverage['limited_confidence']['count']}")
         print(f"Excluded: {coverage['excluded']['count']}")
+        print(f"Output directory: {args.output_dir}")
+    elif args.command == "behavioral-insights":
+        result = build_behavioral_insights(trusted_dir=args.trusted_dir)
+        write_behavioral_insights_outputs(result, args.output_dir)
+        summary = result["behavioral_summary"]
+        print(f"High-confidence trades analyzed: {summary['high_confidence_trade_count']}")
+        print(f"Primary insight candidates: {len(result['insight_candidates'])}")
         print(f"Output directory: {args.output_dir}")
 
 

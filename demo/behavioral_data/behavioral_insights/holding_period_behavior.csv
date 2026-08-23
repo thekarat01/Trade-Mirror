@@ -1,0 +1,6 @@
+holding_period_bin,trade_count,win_rate,net_pnl
+same_day,2,50,-32
+1_7_days,9,88.8889,149
+8_30_days,12,33.3333,-220
+31_90_days,3,0,-700
+more_than_90_days,0,,0

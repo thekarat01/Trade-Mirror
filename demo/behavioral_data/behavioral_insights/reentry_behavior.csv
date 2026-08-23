@@ -1,0 +1,3 @@
+window_days,eligible_trade_count,win_rate,net_pnl,comparison_trade_count,comparison_win_rate,comparison_net_pnl,confidence
+7,2,50,15,24,50,-818,insufficient_evidence
+30,6,33.3333,-110,20,55,-693,medium
