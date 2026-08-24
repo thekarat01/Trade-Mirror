@@ -4,11 +4,11 @@ from collections import Counter
 from typing import Any
 
 from dashboard.data_loader import attention_display_rows, review_display_rows, technical_review_rows
-from dashboard.pages.common import page_header
+from dashboard.pages.common import page_header, safe_dataframe, safe_structured_write
 
 
 def render(st: Any, data: Any) -> None:
-    page_header(st, data, "Data Quality", "Review items, confidence levels and methodology boundaries for the synthetic demo data.")
+    page_header(st, data, "Data Quality", "Review items, confidence levels and methodology boundaries for the selected sanitized data.")
 
     reviews = review_display_rows(data)
     if reviews:
@@ -17,22 +17,22 @@ def render(st: Any, data: Any) -> None:
         left, right = st.columns(2)
         with left:
             st.subheader("Review counts by category")
-            st.dataframe([{"Category": key, "Count": value} for key, value in sorted(by_category.items())], hide_index=True, use_container_width=True)
+            safe_dataframe(st, [{"Category": key, "Count": value} for key, value in sorted(by_category.items())])
         with right:
             st.subheader("Review counts by severity")
-            st.dataframe([{"Severity": key, "Count": value} for key, value in sorted(by_severity.items())], hide_index=True, use_container_width=True)
+            safe_dataframe(st, [{"Severity": key, "Count": value} for key, value in sorted(by_severity.items())])
         st.subheader("Review detail")
-        st.dataframe(reviews, hide_index=True, use_container_width=True)
+        safe_dataframe(st, reviews)
         with st.expander("Technical details"):
-            st.dataframe(technical_review_rows(data), hide_index=True, use_container_width=True)
+            safe_dataframe(st, technical_review_rows(data))
     else:
         st.info("No review items are available in the selected sanitized outputs.")
 
     st.subheader("Attention summary")
-    st.dataframe(attention_display_rows(data), hide_index=True, use_container_width=True)
+    safe_dataframe(st, attention_display_rows(data))
 
     st.subheader("Confidence labels")
-    st.write({
+    safe_structured_write(st, {
         "deterministic_cusip": "Security identity was supported by a CUSIP.",
         "lower_structural_only": "Option identity used underlying, expiration, call/put and strike without CUSIP.",
         "partial": "A balance or position is based on incomplete history.",
@@ -41,7 +41,7 @@ def render(st: Any, data: Any) -> None:
     })
 
     st.subheader("Methodologies")
-    st.write([
+    safe_structured_write(st, [
         "Settlement-date cash ledger",
         "Anchored position ledger with trade-date and settled views",
         "Analytical FIFO equity realized P&L",
@@ -49,7 +49,7 @@ def render(st: Any, data: Any) -> None:
     ])
 
     st.subheader("Known limitations")
-    st.write([
+    safe_structured_write(st, [
         "Sprint 4A uses synthetic demo data and does not read private brokerage files.",
         "No market prices, unrealized returns or allocation percentages are shown.",
         "Tax treatment, wash sales, strategy grouping and spread grouping are deferred.",

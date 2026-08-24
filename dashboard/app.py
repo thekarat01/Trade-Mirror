@@ -21,6 +21,7 @@ from dashboard.data_loader import (
     load_dashboard_data,
     load_validated_dashboard_data,
 )
+from dashboard.pages.common import safe_dataframe
 from dashboard.pages import ask_trademirror, cash_positions, data_quality, my_patterns, overview, realized_pnl
 
 
@@ -70,8 +71,8 @@ def _render_page(renderer: PageRenderer, streamlit_module: Any, data: DashboardD
 
 def _load_data() -> DashboardData:
     root = _configured_data_root()
-    source_label = "Demo data" if root.resolve() == DEMO_DATA_DIR.resolve() else "Sanitized local data"
-    source_indicator = "Synthetic demo" if source_label == "Demo data" else "Configured sanitized output"
+    source_label = "Demo data" if root.resolve() == DEMO_DATA_DIR.resolve() else "Private sanitized data"
+    source_indicator = "Synthetic demo" if source_label == "Demo data" else "Private sanitized data"
     st.sidebar.caption(f"Data source: {source_indicator}")
     try:
         data = load_validated_dashboard_data(root, source_label=source_label)
@@ -112,7 +113,7 @@ def _render_validation_error(issues: tuple[ValidationIssue, ...], *, streamlit_m
         }
         for issue in issues[:20]
     ]
-    streamlit_module.dataframe(rows, use_container_width=True, hide_index=True)
+    safe_dataframe(streamlit_module, rows)
 
 
 def _apply_theme() -> None:
@@ -227,6 +228,28 @@ def _apply_theme() -> None:
           color: #ffffff;
           font-weight: 800;
           margin-bottom: 0.45rem;
+        }
+        .tm-table-wrap {
+          overflow-x: auto;
+          margin: 0.35rem 0 0.8rem 0;
+        }
+        .tm-fallback-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 0.88rem;
+        }
+        .tm-fallback-table th {
+          text-align: left;
+          background: #f1f5f9;
+          color: var(--tm-navy);
+          font-weight: 800;
+        }
+        .tm-fallback-table th,
+        .tm-fallback-table td {
+          border: 1px solid #cbd5e1;
+          padding: 0.42rem 0.5rem;
+          vertical-align: top;
+          overflow-wrap: anywhere;
         }
         </style>
         """,

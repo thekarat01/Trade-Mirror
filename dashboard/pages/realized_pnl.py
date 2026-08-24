@@ -4,7 +4,7 @@ from typing import Any
 
 from dashboard.data_loader import annual_realized_chart_rows, csv_rows, decimal_or_zero, known_basis_security_rows, overview_metrics
 from dashboard.formatters import format_currency
-from dashboard.pages.common import decimal_chart_rows, page_header
+from dashboard.pages.common import decimal_chart_rows, page_header, safe_chart, safe_dataframe
 
 
 def render(st: Any, data: Any) -> None:
@@ -19,7 +19,12 @@ def render(st: Any, data: Any) -> None:
     annual = annual_realized_chart_rows(data)
     if annual:
         st.subheader("Annual realized P&L")
-        st.bar_chart(decimal_chart_rows(annual, ("Equity", "Options")), x="Year", y=["Equity", "Options"])
+        chart_rows = decimal_chart_rows(annual, ("Equity", "Options"))
+        safe_chart(
+            st,
+            lambda: st.bar_chart(chart_rows, x="Year", y=["Equity", "Options"]),
+            fallback_rows=chart_rows,
+        )
         st.caption("Positive bars are realized gains and negative bars are realized losses.")
 
     security_rows = known_basis_security_rows(data)
@@ -28,10 +33,10 @@ def render(st: Any, data: Any) -> None:
     left, right = st.columns(2)
     with left:
         st.subheader("Worst realized securities/contracts")
-        st.dataframe(_display_ranked(known[:5]), hide_index=True, use_container_width=True)
+        safe_dataframe(st, _display_ranked(known[:5]))
     with right:
         st.subheader("Best realized securities/contracts")
-        st.dataframe(_display_ranked(list(reversed(known[-5:]))), hide_index=True, use_container_width=True)
+        safe_dataframe(st, _display_ranked(list(reversed(known[-5:]))))
 
     years = ["All"] + sorted({row.get("closing_trade_date", "")[:4] for row in csv_rows(data, "realized_pnl/equity_lot_matches.csv") if row.get("closing_trade_date")})
     selected_year = st.selectbox("Year", years)
@@ -48,7 +53,7 @@ def render(st: Any, data: Any) -> None:
 
     if asset_type in {"All", "Equity"}:
         st.subheader("Equity matches")
-        st.dataframe(equity_rows, hide_index=True, use_container_width=True)
+        safe_dataframe(st, equity_rows)
     if asset_type in {"All", "Option"}:
         side = st.selectbox("Option side", ["All", "long", "short"])
         option_type = st.selectbox("Call/put", ["All", "call", "put"])
@@ -60,12 +65,12 @@ def render(st: Any, data: Any) -> None:
             and (outcome == "All" or row.get("outcome") == outcome)
         ]
         st.subheader("Option matches")
-        st.dataframe(filtered_options, hide_index=True, use_container_width=True)
+        safe_dataframe(st, filtered_options)
 
     transfers = list(csv_rows(data, "option_realized_pnl/option_basis_transfers.csv"))
     with st.expander("Basis-transfer option events"):
         if transfers:
-            st.dataframe(transfers, hide_index=True, use_container_width=True)
+            safe_dataframe(st, transfers)
         else:
             st.write("No basis-transfer option events are available.")
     st.caption("Short-option premium ratios are descriptive only and are not presented as ROI.")

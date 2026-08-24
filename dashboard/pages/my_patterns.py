@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any
 
 from dashboard.formatters import format_currency
-from dashboard.pages.common import decimal_chart_rows, metric_card, page_header
+from dashboard.pages.common import decimal_chart_rows, metric_card, page_header, safe_chart, safe_dataframe, safe_structured_write
 from dashboard.patterns_model import PatternValidationError, build_patterns_view_model
 
 
@@ -63,7 +63,7 @@ def _render_performance_summary(st: Any, model: dict[str, Any]) -> None:
             metric_card(st, label, summary[label], kind="plain")
     with st.expander("More performance context"):
         rows = [{"Measure": key, "Value": value} for key, value in summary.items()]
-        st.dataframe(rows, hide_index=True, use_container_width=True)
+        safe_dataframe(st, rows)
 
 
 def _render_priority(st: Any, model: dict[str, Any]) -> None:
@@ -127,7 +127,7 @@ def _pattern_card(st: Any, card: dict[str, Any], *, compact: bool = False) -> No
     )
     if not compact:
         with st.expander("Supporting evidence"):
-            st.write(card["supporting_evidence"])
+            safe_structured_write(st, card["supporting_evidence"])
 
 
 def _render_charts(st: Any, model: dict[str, Any]) -> None:
@@ -180,18 +180,18 @@ def _render_reliability(st: Any, model: dict[str, Any]) -> None:
     with st.expander("How reliable is this?"):
         st.write("Historical association is not causation. This page summarizes completed-trade evidence only.")
         st.write("Coverage")
-        st.dataframe([{"Measure": key, "Value": value} for key, value in reliability["coverage"].items()], hide_index=True, use_container_width=True)
+        safe_dataframe(st, [{"Measure": key, "Value": value} for key, value in reliability["coverage"].items()])
         st.write("Sample-size rules")
-        st.dataframe([{"Rule": key, "Minimum": value} for key, value in reliability["sample_rules"].items()], hide_index=True, use_container_width=True)
+        safe_dataframe(st, [{"Rule": key, "Minimum": value} for key, value in reliability["sample_rules"].items()])
         st.write("Confidence definitions")
-        st.dataframe([{"Confidence": key, "Meaning": value} for key, value in reliability["confidence_definitions"].items()], hide_index=True, use_container_width=True)
+        safe_dataframe(st, [{"Confidence": key, "Meaning": value} for key, value in reliability["confidence_definitions"].items()])
         st.write("Sensitivity analysis")
-        st.dataframe([{"Check": key, "Result": value} for key, value in reliability["sensitivity"].items()], hide_index=True, use_container_width=True)
+        safe_dataframe(st, [{"Check": key, "Result": value} for key, value in reliability["sensitivity"].items()])
         st.write("Validation")
-        st.dataframe([{"Check": key, "Result": value} for key, value in reliability["validation"].items()], hide_index=True, use_container_width=True)
+        safe_dataframe(st, [{"Check": key, "Result": value} for key, value in reliability["validation"].items()])
         if reliability["limitations"]:
             st.write("Limitations")
-            st.write(reliability["limitations"])
+            safe_structured_write(st, reliability["limitations"])
         st.caption("See Data Quality for unresolved records and methodology boundaries.")
 
 
@@ -210,8 +210,9 @@ def _bar_chart(st: Any, rows: list[dict[str, Any]], *, x: str, y: str, value_for
     ]
     if rows and "Trade count" in rows[0]:
         tooltips.append(alt.Tooltip("Trade count:Q", title="Eligible trades", format=".0f"))
-    st.altair_chart(
-        alt.Chart(alt.Data(values=_chart_rows(rows)))
+    chart_rows = _chart_rows(rows)
+    chart = (
+        alt.Chart(alt.Data(values=chart_rows))
         .mark_bar()
         .encode(
             x=alt.X(f"{x}:N", title=x, sort=None),
@@ -225,8 +226,12 @@ def _bar_chart(st: Any, rows: list[dict[str, Any]], *, x: str, y: str, value_for
                 ),
             ),
             tooltip=tooltips,
-        ),
-        use_container_width=True,
+        )
+    )
+    safe_chart(
+        st,
+        lambda: st.altair_chart(chart, use_container_width=True),
+        fallback_rows=chart_rows,
     )
 
 
@@ -237,8 +242,9 @@ def _point_chart(st: Any, rows: list[dict[str, Any]], *, x: str, y: str, color: 
         return
     import altair as alt
 
-    st.altair_chart(
-        alt.Chart(alt.Data(values=_chart_rows(rows)))
+    chart_rows = _chart_rows(rows)
+    chart = (
+        alt.Chart(alt.Data(values=chart_rows))
         .mark_circle(size=70)
         .encode(
             x=alt.X(f"{x}:N", title=x, sort=None),
@@ -250,8 +256,12 @@ def _point_chart(st: Any, rows: list[dict[str, Any]], *, x: str, y: str, color: 
                 alt.Tooltip(f"{color}:N", title=color),
                 alt.Tooltip("Trade count:Q", title="Eligible trades", format=".0f"),
             ],
-        ),
-        use_container_width=True,
+        )
+    )
+    safe_chart(
+        st,
+        lambda: st.altair_chart(chart, use_container_width=True),
+        fallback_rows=chart_rows,
     )
 
 

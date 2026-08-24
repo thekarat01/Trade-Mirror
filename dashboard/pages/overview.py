@@ -4,7 +4,7 @@ from typing import Any
 
 from dashboard.data_loader import annual_realized_chart_rows, attention_display_rows, overview_metrics
 from dashboard.formatters import format_currency, format_date, format_percent
-from dashboard.pages.common import decimal_chart_rows, metric_card, page_header
+from dashboard.pages.common import decimal_chart_rows, metric_card, page_header, safe_chart, safe_dataframe, safe_structured_write
 
 
 def render(st: Any, data: Any) -> None:
@@ -36,13 +36,18 @@ def render(st: Any, data: Any) -> None:
         metric_card(st, "Review queue", f"Needs review: {metrics['review_count']}", kind="plain", emphasis="review")
 
     st.subheader("What needs attention")
-    st.dataframe(attention_display_rows(data), hide_index=True, use_container_width=True)
+    safe_dataframe(st, attention_display_rows(data))
     st.caption("Use the Data Quality page for the detailed review queue.")
 
     annual = annual_realized_chart_rows(data)
     st.subheader("Annual realized P&L")
     if annual:
-        st.bar_chart(decimal_chart_rows(annual, ("Equity", "Options")), x="Year", y=["Equity", "Options"])
+        chart_rows = decimal_chart_rows(annual, ("Equity", "Options"))
+        safe_chart(
+            st,
+            lambda: st.bar_chart(chart_rows, x="Year", y=["Equity", "Options"]),
+            fallback_rows=chart_rows,
+        )
         st.caption("Bars above zero are realized gains; bars below zero are realized losses. Equity and Options values come directly from the annual summary JSON.")
     else:
         st.info("Annual realized-P&L data is unavailable.")
@@ -50,14 +55,15 @@ def render(st: Any, data: Any) -> None:
     left, right = st.columns([1, 1])
     with left:
         st.subheader("Reading the chart")
-        st.write([
+        safe_structured_write(st, [
             "The zero line separates gains from losses.",
             "Each year shows Equity and Options as separate labeled series.",
             "Unknown-basis and basis-transfer records remain outside included P&L.",
         ])
     with right:
         st.subheader("Included totals")
-        st.write(
+        safe_structured_write(
+            st,
             {
                 "Equity realized P&L": format_currency(metrics["equity_realized_pnl"]),
                 "Option realized P&L": format_currency(metrics["option_realized_pnl"]),

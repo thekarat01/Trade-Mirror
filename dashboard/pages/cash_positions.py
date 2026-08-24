@@ -6,7 +6,7 @@ from typing import Any
 
 from dashboard.data_loader import csv_rows, decimal_field, decimal_or_zero, json_data
 from dashboard.formatters import format_currency
-from dashboard.pages.common import decimal_chart_rows, page_header
+from dashboard.pages.common import decimal_chart_rows, page_header, safe_chart, safe_dataframe
 
 
 def render(st: Any, data: Any) -> None:
@@ -20,14 +20,22 @@ def render(st: Any, data: Any) -> None:
         balance_chart = cash_balance_chart_rows(daily)
         movement_chart = cash_movement_chart_rows(daily)
         if any(row["Settled cash balance"] is not None for row in balance_chart):
-            st.altair_chart(cash_balance_chart(balance_chart, as_of=as_of), use_container_width=True)
+            safe_chart(
+                st,
+                lambda: st.altair_chart(cash_balance_chart(balance_chart, as_of=as_of), use_container_width=True),
+                fallback_rows=balance_chart,
+            )
             if any(row["Settled cash balance"] is None for row in balance_chart):
                 st.caption("Gaps in cash-balance history represent unavailable balances.")
         else:
             st.info("Cash-balance history is unavailable for this data.")
         st.subheader("Daily cash movement")
         if movement_chart:
-            st.altair_chart(cash_movement_chart(movement_chart, as_of=as_of), use_container_width=True)
+            safe_chart(
+                st,
+                lambda: st.altair_chart(cash_movement_chart(movement_chart, as_of=as_of), use_container_width=True),
+                fallback_rows=movement_chart,
+            )
         else:
             st.info("Daily cash movement is unavailable for this data.")
     else:
@@ -56,20 +64,20 @@ def render(st: Any, data: Any) -> None:
 
     st.subheader("Current equity positions")
     if equities:
-        st.dataframe(equities, hide_index=True, use_container_width=True)
+        safe_dataframe(st, equities)
     else:
         st.info("No equity positions are available for the selected filters.")
 
     st.subheader("Current option positions")
     if options:
-        st.dataframe(options, hide_index=True, use_container_width=True)
+        safe_dataframe(st, options)
     else:
         st.info("No option positions are available for the selected filters.")
 
     pending = list(csv_rows(data, "position_ledger/pending_position_settlement.csv"))
     with st.expander("Pending settlement"):
         if pending:
-            st.dataframe(pending, hide_index=True, use_container_width=True)
+            safe_dataframe(st, pending)
         else:
             st.write("No pending position settlement rows are available.")
 

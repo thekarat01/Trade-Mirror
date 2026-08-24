@@ -6,6 +6,7 @@ import importlib
 import json
 import os
 import sys
+import ast
 from decimal import Decimal
 from datetime import date
 from pathlib import Path
@@ -43,7 +44,7 @@ from dashboard.pages.cash_positions import (
     render as render_cash_positions,
 )
 from dashboard.pages import ask_trademirror, cash_positions, data_quality, my_patterns, overview, realized_pnl
-from dashboard.pages.common import page_header
+from dashboard.pages.common import page_header, safe_chart, safe_dataframe, safe_structured_write
 
 
 class DashboardDataTests(unittest.TestCase):
@@ -549,6 +550,85 @@ class DashboardDataTests(unittest.TestCase):
         self.assertEqual(fake_streamlit.titles, ["Title"])
         self.assertEqual(fake_streamlit.captions, ["Caption"])
 
+    def test_safe_dataframe_falls_back_when_native_renderer_dependency_is_blocked(self):
+        fake_streamlit = _FakeStreamlit(str(DEMO_DATA_DIR))
+        fake_streamlit.dataframe_exception = ImportError(
+            "DLL load failed while importing lib: An Application Control policy has blocked this file."
+        )
+        safe_dataframe(
+            fake_streamlit,
+            [
+                {
+                    "<Field>": "<script>alert('private')</script>",
+                    "Value": "1 & 2",
+                }
+            ],
+        )
+        rendered = "\n".join(fake_streamlit.markdowns)
+        self.assertIn("compatibility mode", "\n".join(fake_streamlit.captions))
+        self.assertIn("&lt;Field&gt;", rendered)
+        self.assertIn("&lt;script&gt;alert(&#x27;private&#x27;)&lt;/script&gt;", rendered)
+        self.assertIn("1 &amp; 2", rendered)
+        self.assertNotIn("<script>", rendered)
+        self.assertNotIn("Traceback", rendered)
+
+    def test_safe_dataframe_uses_native_renderer_when_available(self):
+        fake_streamlit = _FakeStreamlit(str(DEMO_DATA_DIR))
+        rows = [{"Field": "Count", "Value": "1"}]
+        safe_dataframe(fake_streamlit, rows)
+        self.assertEqual(fake_streamlit.dataframes, [rows])
+        self.assertEqual(fake_streamlit.markdowns, [])
+
+    def test_safe_chart_falls_back_without_traceback_when_renderer_dependency_is_blocked(self):
+        fake_streamlit = _FakeStreamlit(str(DEMO_DATA_DIR))
+        fake_streamlit.dataframe_exception = ImportError(
+            "DLL load failed while importing lib: An Application Control policy has blocked this file."
+        )
+        safe_chart(
+            fake_streamlit,
+            lambda: (_ for _ in ()).throw(fake_streamlit.dataframe_exception),
+            fallback_rows=[{"Year": "2021", "P&L": "<blocked> & safe"}],
+        )
+        rendered = "\n".join(fake_streamlit.markdowns)
+        self.assertIn("unavailable", "\n".join(fake_streamlit.warnings))
+        self.assertIn("compatibility mode", "\n".join(fake_streamlit.captions))
+        self.assertIn("&lt;blocked&gt; &amp; safe", rendered)
+        self.assertNotIn("<blocked>", rendered)
+        self.assertNotIn("Traceback", rendered)
+
+    def test_safe_structured_write_does_not_use_streamlit_dataframe_detection(self):
+        fake_streamlit = _FakeStreamlit(str(DEMO_DATA_DIR))
+        fake_streamlit.write_exception = ImportError(
+            "DLL load failed while importing lib: An Application Control policy has blocked this file."
+        )
+        safe_structured_write(
+            fake_streamlit,
+            {
+                "detail": "<private> & safe",
+                "nested": {"count": "2"},
+            },
+        )
+        rendered = "\n".join(fake_streamlit.markdowns)
+        self.assertIn("&lt;private&gt; &amp; safe", rendered)
+        self.assertIn("<strong>detail:</strong>", rendered)
+        self.assertEqual(fake_streamlit.writes, [])
+
+    def test_dashboard_pages_do_not_write_literal_structured_values_directly(self):
+        for module in (overview, my_patterns, ask_trademirror, cash_positions, realized_pnl, data_quality):
+            tree = ast.parse(inspect.getsource(module))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                if not isinstance(node.func, ast.Attribute) or node.func.attr != "write":
+                    continue
+                if not node.args:
+                    continue
+                self.assertNotIsInstance(
+                    node.args[0],
+                    (ast.Dict, ast.List, ast.Tuple),
+                    f"{module.__name__} should route structured writes through safe_structured_write",
+                )
+
     def test_all_pages_use_shared_page_header(self):
         for module in (overview, my_patterns, ask_trademirror, cash_positions, realized_pnl, data_quality):
             source = inspect.getsource(module.render)
@@ -1002,8 +1082,12 @@ class _FakeStreamlit(types.ModuleType):
         self.markdowns: list[str] = []
         self.titles: list[str] = []
         self.captions: list[str] = []
+        self.warnings: list[str] = []
+        self.writes: list[object] = []
         self.navigation_titles: list[str] = []
         self.navigation_paths: list[str] = []
+        self.dataframe_exception: Exception | None = None
+        self.write_exception: Exception | None = None
 
     def set_page_config(self, **_kwargs) -> None:
         return None
@@ -1020,13 +1104,20 @@ class _FakeStreamlit(types.ModuleType):
     def error(self, text: str) -> None:
         self.errors.append(text)
 
+    def warning(self, text: str) -> None:
+        self.warnings.append(text)
+
     def subheader(self, _text: str) -> None:
         return None
 
     def write(self, *_args, **_kwargs) -> None:
-        return None
+        if self.write_exception is not None:
+            raise self.write_exception
+        self.writes.extend(_args)
 
     def dataframe(self, rows: list[dict[str, str]], **_kwargs) -> None:
+        if self.dataframe_exception is not None:
+            raise self.dataframe_exception
         self.dataframes.append(rows)
 
     def Page(self, page: object, *, title: str, url_path: str):

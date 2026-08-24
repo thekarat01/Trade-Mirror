@@ -4,7 +4,7 @@ from html import escape
 from typing import Any
 
 from dashboard.ask_trademirror import answer_question, provider_from_environment
-from dashboard.pages.common import page_header
+from dashboard.pages.common import page_header, safe_dataframe
 
 
 SUGGESTED_QUESTIONS = (
@@ -77,6 +77,6 @@ def _render_response(st: Any, question: str, response: dict[str, Any]) -> None:
                 for item in response.get("evidence", [])
             ]
             if evidence_rows:
-                st.dataframe(evidence_rows, hide_index=True, use_container_width=True)
+                safe_dataframe(st, evidence_rows)
             else:
                 st.write("No evidence was used because the question was outside TradeMirror scope.")
