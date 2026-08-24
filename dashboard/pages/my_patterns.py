@@ -7,6 +7,16 @@ from typing import Any
 from dashboard.formatters import format_currency
 from dashboard.pages.common import decimal_chart_rows, metric_card, page_header, safe_chart, safe_dataframe, safe_structured_write
 from dashboard.patterns_model import PatternValidationError, build_patterns_view_model
+from dashboard.strategy_discovery import (
+    EXPERIMENT_OPTIONS,
+    RESPONSE_OPTIONS,
+    build_strategy_discovery_model,
+    load_strategy_profile,
+    save_strategy_profile,
+    with_experiment_response,
+    with_follow_up_answer,
+    with_hypothesis_response,
+)
 
 
 def render(st: Any, data: Any) -> None:
@@ -28,6 +38,7 @@ def render(st: Any, data: Any) -> None:
 
     _render_coverage(st, model)
     _render_performance_summary(st, model)
+    _render_strategy_discovery(st, data)
     _render_priority(st, model)
     _render_helped_hurt(st, model)
     _render_charts(st, model)
@@ -64,6 +75,106 @@ def _render_performance_summary(st: Any, model: dict[str, Any]) -> None:
     with st.expander("More performance context"):
         rows = [{"Measure": key, "Value": value} for key, value in summary.items()]
         safe_dataframe(st, rows)
+
+
+def _render_strategy_discovery(st: Any, data: Any) -> None:
+    strategy = build_strategy_discovery_model(data)
+    st.subheader("What your history shows")
+    safe_dataframe(st, strategy["mirror"])
+
+    if strategy["tensions"]:
+        st.subheader("Tensions to review")
+        safe_dataframe(st, strategy["tensions"])
+
+    st.subheader("Possible investing approach")
+    for hypothesis in strategy["hypotheses"]:
+        _strategy_hypothesis_card(st, hypothesis)
+
+    st.subheader("Does this reflect your intention?")
+    _render_reflection_controls(st, strategy)
+
+    st.subheader("One process experiment to consider")
+    experiment = strategy["experiments"][0] if strategy["experiments"] else None
+    if experiment:
+        _experiment_card(st, experiment)
+        _render_experiment_controls(st, experiment)
+    else:
+        st.info("No evidence-linked process experiment is available yet.")
+
+    st.subheader("Progress status")
+    safe_structured_write(st, strategy["progress"])
+
+
+def _strategy_hypothesis_card(st: Any, hypothesis: dict[str, str]) -> None:
+    safe = {key: escape(str(value)) for key, value in hypothesis.items()}
+    st.markdown(
+        f"""
+        <div class='tm-pattern-card tm-pattern-card-mixed'>
+          <div class='tm-pattern-meta'>
+            <span class='tm-direction'>HYPOTHESIS</span>
+            <span class='tm-confidence'>Confidence: {safe['confidence']}</span>
+          </div>
+          <div class='tm-pattern-title'>{safe['title']}</div>
+          <div>{safe['hypothesis']}</div>
+          <div><strong>Your reflection:</strong> {safe['user_response']}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_reflection_controls(st: Any, strategy: dict[str, Any]) -> None:
+    if not hasattr(st, "selectbox") or not hasattr(st, "button"):
+        st.info("Reflection controls are unavailable in this display environment.")
+        return
+    profile = load_strategy_profile()
+    hypotheses = strategy["hypotheses"]
+    labels = [hypothesis["title"] for hypothesis in hypotheses]
+    selected_label = st.selectbox("Hypothesis", labels)
+    selected = next(item for item in hypotheses if item["title"] == selected_label)
+    response_labels = list(RESPONSE_OPTIONS.values())
+    response_label = st.selectbox("Reflection", response_labels)
+    response_key = next(key for key, value in RESPONSE_OPTIONS.items() if value == response_label)
+    answer = ""
+    questions = strategy.get("reflection_questions", [])
+    if hasattr(st, "text_input") and questions:
+        answer = st.text_input(questions[0]["question"], value="")
+    if st.button("Save reflection"):
+        updated = with_hypothesis_response(profile, selected["id"], response_key)
+        if answer:
+            updated = with_follow_up_answer(updated, questions[0]["id"], answer)
+        save_strategy_profile(updated)
+        st.success("Reflection saved locally.")
+
+
+def _experiment_card(st: Any, experiment: dict[str, str]) -> None:
+    safe = {key: escape(str(value)) for key, value in experiment.items()}
+    st.markdown(
+        f"""
+        <div class='tm-guardrail-card'>
+          <div class='tm-pattern-title'>{safe['title']}</div>
+          <div><strong>Behavior addressed:</strong> {safe['behavior']}</div>
+          <div><strong>Why it may be relevant:</strong> {safe['why_relevant']}</div>
+          <div><strong>Measurement period:</strong> {safe['measurement_period']}</div>
+          <div><strong>Success metric:</strong> {safe['success_metric']}</div>
+          <div><strong>Confidence:</strong> {safe['confidence']}</div>
+          <div><strong>Limitation:</strong> {safe['limitation']}</div>
+          <div><strong>Status:</strong> {safe['status']}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_experiment_controls(st: Any, experiment: dict[str, str]) -> None:
+    if not hasattr(st, "selectbox") or not hasattr(st, "button"):
+        return
+    profile = load_strategy_profile()
+    status_label = st.selectbox("Experiment decision", list(EXPERIMENT_OPTIONS.values()))
+    status_key = next(key for key, value in EXPERIMENT_OPTIONS.items() if value == status_label)
+    if st.button("Save experiment decision"):
+        save_strategy_profile(with_experiment_response(profile, experiment["id"], status_key))
+        st.success("Experiment decision saved locally.")
 
 
 def _render_priority(st: Any, model: dict[str, Any]) -> None:

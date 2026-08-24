@@ -125,9 +125,8 @@ class AskTradeMirrorTests(unittest.TestCase):
         self.assertEqual(bad["mode_label"], "Demo explanation mode")
 
     def test_default_openai_model_is_supported_public_model_name(self):
-        self.assertEqual(DEFAULT_MODEL, "gpt-5.1")
+        self.assertEqual(DEFAULT_MODEL, "gpt-5.6-terra")
         self.assertNotIn("codex", DEFAULT_MODEL.casefold())
-        self.assertNotIn("terra", DEFAULT_MODEL.casefold())
 
     def test_no_api_call_for_empty_or_overlong_question(self):
         self.assertEqual(answer_question(self.data, "", provider=_NoCallProvider())["answer_type"], "refusal")
@@ -183,6 +182,19 @@ class AskTradeMirrorTests(unittest.TestCase):
             with self.subTest(category=category):
                 self.assertEqual(stats["passed"], stats["total"])
                 self.assertEqual(stats["pass_rate"], 1)
+
+    def test_strategy_discovery_context_is_grounded_and_distinct(self):
+        evidence = retrieve_evidence(self.data, "What strategy hypothesis should I reflect on?", route="guardrail")
+        strategy = next(item for item in evidence if item.evidence_id == "ev.strategy_discovery")
+        self.assertIn("observed_behavior", strategy.data)
+        self.assertIn("possible_interpretations", strategy.data)
+        self.assertIn("process_experiments", strategy.data)
+        distinctions = " ".join(strategy.data["distinctions"]).casefold()
+        self.assertIn("observed behavior", distinctions)
+        self.assertIn("possible interpretation", distinctions)
+        response = answer_question(self.data, "What strategy hypothesis should I reflect on?")
+        self.assertEqual(response["answer_type"], "guardrail")
+        self.assertIn("ev.strategy_discovery", response["evidence_ids"])
 
 
 class _NoCallProvider:

@@ -1,8 +1,20 @@
 # My Patterns Dashboard
 
-The My Patterns page turns Milestone 2 behavioral outputs into a read-only
-dashboard experience. It answers what helped, what hurt, what evidence supports
-each pattern, and how reliable that evidence is.
+The My Patterns page turns Milestone 2 behavioral outputs into a dashboard
+experience. It answers what the history shows, what helped, what hurt, what
+evidence supports each pattern, and how reliable that evidence is.
+
+Milestone 4B adds Strategy Discovery inside the same page. The flow is:
+
+- What your history shows
+- Tensions to review
+- Possible investing approach
+- Does this reflect your intention?
+- One process experiment to consider
+- Progress status
+
+Hypotheses are possible interpretations, not conclusions. TradeMirror does not
+claim that repeated behavior is intended, coherent or optimal.
 
 ## Data Source
 
@@ -42,6 +54,11 @@ the evidence threshold.
 
 Guardrails are process prompts tied to aggregate historical evidence. They do
 not recommend securities, allocation percentages, trades or expected returns.
+
+Strategy Discovery can store reflection choices and process-experiment
+decisions locally under `private_output/strategy_discovery/profile.json`. That
+file is ignored by Git and should not be committed. User-entered profile data is
+treated as untrusted data, not as an instruction to the assistant.
 
 ## Reliability
 

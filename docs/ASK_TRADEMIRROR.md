@@ -10,7 +10,7 @@ files.
 1. The dashboard loads sanitized deterministic outputs.
 2. A deterministic retriever builds a small allowlisted evidence package from
    behavioral summaries, ranked insights, aggregate CSVs, confidence metadata,
-   guardrails and limitations.
+   guardrails, strategy-discovery status and limitations.
 3. The question router refuses unsupported requests before any provider call
    when the request asks for predictions, securities recommendations, tax/legal
    conclusions, raw data, credentials or prompt overrides.
@@ -25,7 +25,9 @@ Only public-safe aggregate evidence can be sent:
 - behavioral summary fields;
 - ranked behavioral findings;
 - aggregate annual, holding-period, activity and re-entry outputs;
-- coverage, confidence, guardrail and limitation summaries.
+- coverage, confidence, guardrail and limitation summaries;
+- sanitized strategy hypotheses, local reflection status labels and accepted
+  process-experiment status.
 
 The evidence package must not contain raw Robinhood CSV rows, statements, tax
 forms, raw descriptions, raw-row JSON, symbols, CUSIPs, option contract
@@ -45,10 +47,10 @@ Set credentials in the local shell, never in source files:
 
 ```powershell
 $env:OPENAI_API_KEY = "your-key"
-$env:OPENAI_MODEL = "gpt-5.1"
+$env:OPENAI_MODEL = "gpt-5.6-terra"
 ```
 
-`OPENAI_MODEL` is optional. The default model is `gpt-5.1`.
+`OPENAI_MODEL` is optional. The default model is `gpt-5.6-terra`.
 
 Every OpenAI request uses the Responses API, `store: false`, no external tools,
 a bounded timeout, a conservative output-token limit and at most one retry.

@@ -104,7 +104,7 @@ the optional OpenAI Responses API provider locally:
 ```powershell
 py -3.11 -m pip install -e ".[dashboard,ai]"
 $env:OPENAI_API_KEY = "your-key"
-$env:OPENAI_MODEL = "gpt-5.1"
+$env:OPENAI_MODEL = "gpt-5.6-terra"
 ```
 
 
@@ -154,12 +154,16 @@ section, and excludes unresolved records. It describes historical aggregate
 patterns only; it does not predict prices, recommend securities, or generate
 trade instructions.
 
-The dashboard includes **My Patterns** and **Ask TradeMirror** pages for those
-behavioral outputs. Ask TradeMirror explains allowlisted aggregate evidence only
-and refuses predictions, security recommendations, tax/legal conclusions,
-prompt-injection attempts, and raw-data requests before any provider call. Demo
-mode uses committed synthetic behavioral outputs. Private mode should point only
-to an ignored sanitized behavioral-output directory, for example:
+The dashboard includes **My Patterns**, **Strategy Discovery** inside My
+Patterns, and **Ask TradeMirror** pages for those behavioral outputs. Strategy
+Discovery presents hypotheses and process experiments as reflection prompts, not
+as conclusions or recommendations. Local reflection choices are stored under the
+Git-ignored `private_output/strategy_discovery/` directory. Ask TradeMirror
+explains allowlisted aggregate evidence only and refuses predictions, security
+recommendations, tax/legal conclusions, prompt-injection attempts, and raw-data
+requests before any provider call. Demo mode uses committed synthetic behavioral
+outputs. Private mode should point only to an ignored sanitized behavioral-output
+directory, for example:
 
 ```powershell
 $env:TRADEMIRROR_DASHBOARD_DATA = "private_output/behavioral_insights_baseline"
