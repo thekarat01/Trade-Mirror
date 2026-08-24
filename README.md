@@ -104,7 +104,7 @@ the optional OpenAI Responses API provider locally:
 ```powershell
 py -3.11 -m pip install -e ".[dashboard,ai]"
 $env:OPENAI_API_KEY = "your-key"
-$env:OPENAI_MODEL = "gpt-5.6-terra"
+$env:OPENAI_MODEL = "gpt-5.1"
 ```
 
 

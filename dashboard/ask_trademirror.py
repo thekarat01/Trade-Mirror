@@ -12,7 +12,7 @@ from dashboard.formatters import format_currency, format_percent
 from dashboard.patterns_model import PatternValidationError, build_patterns_view_model
 
 
-DEFAULT_MODEL = "gpt-5.6-terra"
+DEFAULT_MODEL = "gpt-5.1"
 MAX_QUESTION_CHARS = 600
 MAX_EVIDENCE_ITEMS = 8
 MAX_HISTORY_TURNS = 6
@@ -128,14 +128,17 @@ def answer_question(
             history=tuple(history[-MAX_HISTORY_TURNS:]),
         )
         payload = validate_answer(result.payload, evidence)
-    except (ProviderError, AnswerValidationError):
+        provider_notice = ""
+    except (ProviderError, AnswerValidationError) as exc:
         payload = FakeLLMProvider().generate(question=clean_question, evidence=evidence, history=()).payload
         payload = validate_answer(payload, evidence)
         result = ProviderResult(payload=payload, provider_name="deterministic", mode_label="Demo explanation mode")
+        provider_notice = _provider_notice(exc)
     return {
         **payload,
         "provider_name": result.provider_name,
         "mode_label": result.mode_label,
+        "provider_notice": provider_notice,
         "evidence": [_public_evidence(item) for item in evidence],
     }
 
@@ -253,13 +256,9 @@ class OpenAIResponsesProvider:
         self.max_output_tokens = max_output_tokens
 
     def generate(self, *, question: str, evidence: tuple[EvidenceItem, ...], history: tuple[Mapping[str, str], ...]) -> ProviderResult:
-        try:
-            from openai import OpenAI
-        except Exception as exc:  # pragma: no cover - depends on optional package
-            raise ProviderError("OpenAI SDK is unavailable.") from exc
-        client = OpenAI(timeout=self.timeout)
+        client = self._client()
         payload = _provider_payload(question, evidence, history)
-        last_error: Exception | None = None
+        last_error: ProviderError | None = None
         for _attempt in range(2):
             try:
                 response = client.responses.create(
@@ -269,13 +268,20 @@ class OpenAIResponsesProvider:
                     store=False,
                     max_output_tokens=self.max_output_tokens,
                 )
-                content = getattr(response, "output_text", "")
-                parsed = json.loads(content)
-                validate_answer(parsed, evidence)
+                parsed = _parse_openai_response(response, evidence)
                 return ProviderResult(payload=parsed, provider_name=self.provider_name, mode_label=self.mode_label)
-            except Exception as exc:  # pragma: no cover - live API path
+            except ProviderError as exc:
                 last_error = exc
-        raise ProviderError("OpenAI request failed.") from last_error
+            except Exception as exc:  # pragma: no cover - SDK-specific live API failures
+                last_error = _provider_error_from_exception(exc)
+        raise last_error or ProviderError("OpenAI request failed.")
+
+    def _client(self) -> Any:
+        try:
+            from openai import OpenAI
+        except Exception as exc:  # pragma: no cover - depends on optional package
+            raise ProviderError("OpenAI SDK is unavailable.") from exc
+        return OpenAI(timeout=self.timeout)
 
 
 class ProviderError(RuntimeError):
@@ -284,6 +290,63 @@ class ProviderError(RuntimeError):
 
 class AnswerValidationError(ValueError):
     pass
+
+
+def _parse_openai_response(response: Any, evidence: tuple[EvidenceItem, ...]) -> dict[str, Any]:
+    status = getattr(response, "status", "completed")
+    if status == "incomplete":
+        raise ProviderError("OpenAI response was incomplete.")
+    if status not in {"completed", None}:
+        raise ProviderError("OpenAI response did not complete.")
+    if _response_has_refusal(response):
+        raise ProviderError("OpenAI response refused the request.")
+    content = getattr(response, "output_text", "")
+    if not content:
+        raise ProviderError("OpenAI response was empty.")
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ProviderError("OpenAI response was malformed.") from exc
+    try:
+        return validate_answer(parsed, evidence)
+    except AnswerValidationError as exc:
+        raise ProviderError("OpenAI response failed validation.") from exc
+
+
+def _response_has_refusal(response: Any) -> bool:
+    output = getattr(response, "output", None) or []
+    for item in output:
+        content = getattr(item, "content", None) or []
+        for part in content:
+            if getattr(part, "type", "") == "refusal":
+                return True
+    return False
+
+
+def _provider_notice(exc: Exception) -> str:
+    text = str(exc).casefold()
+    if "timeout" in text:
+        return "The live provider timed out, so TradeMirror used deterministic demo explanations for this answer."
+    if "auth" in text or "api key" in text or "unauthorized" in text:
+        return "The live provider could not authenticate, so TradeMirror used deterministic demo explanations for this answer."
+    if "rate" in text:
+        return "The live provider rate limit was reached, so TradeMirror used deterministic demo explanations for this answer."
+    if "incomplete" in text:
+        return "The live provider returned an incomplete answer, so TradeMirror used deterministic demo explanations for this answer."
+    if "refused" in text:
+        return "The live provider refused the request, so TradeMirror used deterministic demo explanations for this answer."
+    return "The live provider was unavailable, so TradeMirror used deterministic demo explanations for this answer."
+
+
+def _provider_error_from_exception(exc: Exception) -> ProviderError:
+    text = f"{type(exc).__name__}: {exc}".casefold()
+    if "timeout" in text or isinstance(exc, TimeoutError):
+        return ProviderError("OpenAI request timed out.")
+    if "auth" in text or "api key" in text or "unauthorized" in text:
+        return ProviderError("OpenAI authentication failed.")
+    if "rate" in text:
+        return ProviderError("OpenAI rate limit reached.")
+    return ProviderError("OpenAI request failed.")
 
 
 def validate_answer(payload: Mapping[str, Any], evidence: tuple[EvidenceItem, ...]) -> dict[str, Any]:

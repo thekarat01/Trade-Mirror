@@ -45,10 +45,10 @@ Set credentials in the local shell, never in source files:
 
 ```powershell
 $env:OPENAI_API_KEY = "your-key"
-$env:OPENAI_MODEL = "gpt-5.6-terra"
+$env:OPENAI_MODEL = "gpt-5.1"
 ```
 
-`OPENAI_MODEL` is optional. The default model is `gpt-5.6-terra`.
+`OPENAI_MODEL` is optional. The default model is `gpt-5.1`.
 
 Every OpenAI request uses the Responses API, `store: false`, no external tools,
 a bounded timeout, a conservative output-token limit and at most one retry.

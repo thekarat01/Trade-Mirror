@@ -3,7 +3,7 @@ from __future__ import annotations
 from html import escape
 from typing import Any
 
-from dashboard.ask_trademirror import answer_question, provider_from_environment
+from dashboard.ask_trademirror import DEFAULT_MODEL, answer_question, provider_from_environment
 from dashboard.pages.common import page_header, safe_dataframe
 
 
@@ -28,7 +28,7 @@ def render(st: Any, data: Any) -> None:
     if provider.provider_name == "deterministic":
         st.info("No OpenAI API key is configured. The synthetic demo uses deterministic, pre-authored explanations grounded in the same evidence package.")
         with st.expander("Enable OpenAI locally"):
-            st.code("$env:OPENAI_API_KEY = \"your-key\"\n$env:OPENAI_MODEL = \"gpt-5.6-terra\"", language="powershell")
+            st.code(f"$env:OPENAI_API_KEY = \"your-key\"\n$env:OPENAI_MODEL = \"{DEFAULT_MODEL}\"", language="powershell")
 
     st.subheader("Suggested questions")
     columns = st.columns(2)
@@ -36,6 +36,11 @@ def render(st: Any, data: Any) -> None:
         with columns[index % 2]:
             if st.button(question, key=f"ask-suggested-{index}", use_container_width=True):
                 st.session_state["ask_trademirror_question"] = question
+
+    typed_question = st.text_input("Question", value=st.session_state.get("ask_trademirror_draft", ""))
+    st.session_state["ask_trademirror_draft"] = typed_question
+    if st.button("Ask", type="primary", use_container_width=True):
+        st.session_state["ask_trademirror_question"] = typed_question
 
     question = st.chat_input("Ask about historical behavioral evidence")
     if question:
@@ -45,7 +50,8 @@ def render(st: Any, data: Any) -> None:
         st.info("Choose a suggested question or enter your own to generate a grounded explanation.")
         return
     history = tuple(st.session_state.get("ask_trademirror_history", [])[-6:])
-    response = answer_question(data, selected, history=history)
+    with st.spinner("Grounding answer in deterministic evidence..."):
+        response = answer_question(data, selected, history=history)
     _render_response(st, selected, response)
     updated_history = [*history, {"role": "user", "content": selected}, {"role": "assistant", "content": response["answer"]}]
     st.session_state["ask_trademirror_history"] = updated_history[-12:]
@@ -57,6 +63,8 @@ def _render_response(st: Any, question: str, response: dict[str, Any]) -> None:
         st.write(response["answer"])
         meta = f"Confidence: {response['confidence']} · Mode: {response['mode_label']}"
         st.caption(meta)
+        if response.get("provider_notice"):
+            st.info(response["provider_notice"])
         if response.get("process_guardrail"):
             st.markdown(f"**Process guardrail:** {response['process_guardrail']}")
         if response.get("limitations"):

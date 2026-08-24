@@ -5,7 +5,18 @@ import os
 import types
 import unittest
 
-from dashboard.ask_trademirror import AnswerValidationError, EvidenceItem, ProviderError, answer_question, classify_question, retrieve_evidence, validate_answer
+from dashboard.ask_trademirror import (
+    DEFAULT_MODEL,
+    AnswerValidationError,
+    EvidenceItem,
+    OpenAIResponsesProvider,
+    ProviderError,
+    answer_question,
+    classify_question,
+    retrieve_evidence,
+    validate_answer,
+)
+from dashboard.ask_trademirror_eval import run_synthetic_evaluation
 from dashboard.data_loader import DEMO_DATA_DIR, load_dashboard_data
 from dashboard.pages import ask_trademirror as ask_page
 
@@ -109,8 +120,14 @@ class AskTradeMirrorTests(unittest.TestCase):
     def test_provider_failure_and_bad_output_fall_back_safely(self):
         failed = answer_question(self.data, "What patterns hurt my historical results?", provider=_FailingProvider())
         self.assertEqual(failed["mode_label"], "Demo explanation mode")
+        self.assertIn("unavailable", failed["provider_notice"])
         bad = answer_question(self.data, "What patterns hurt my historical results?", provider=_BadProvider())
         self.assertEqual(bad["mode_label"], "Demo explanation mode")
+
+    def test_default_openai_model_is_supported_public_model_name(self):
+        self.assertEqual(DEFAULT_MODEL, "gpt-5.1")
+        self.assertNotIn("codex", DEFAULT_MODEL.casefold())
+        self.assertNotIn("terra", DEFAULT_MODEL.casefold())
 
     def test_no_api_call_for_empty_or_overlong_question(self):
         self.assertEqual(answer_question(self.data, "", provider=_NoCallProvider())["answer_type"], "refusal")
@@ -126,6 +143,46 @@ class AskTradeMirrorTests(unittest.TestCase):
             ask_page.provider_from_environment = original_provider
         self.assertIn("Choose a suggested question", "\n".join(fake_streamlit.infos))
         self.assertEqual(fake_streamlit.chat_messages, [])
+
+    def test_openai_provider_uses_responses_schema_store_false_and_limits(self):
+        evidence = (EvidenceItem("ev.one", "One", "Safe", {"value": "1"}),)
+        provider = _FakeOpenAIProvider(_FakeOpenAIClient(_FakeResponse(_valid_payload(evidence_ids=["ev.one"], answer="The value is 1."))))
+        result = provider.generate(question="What happened?", evidence=evidence, history=())
+        call = provider.fake_client.responses.calls[0]
+        self.assertEqual(result.provider_name, "openai")
+        self.assertFalse(call["store"])
+        self.assertEqual(call["model"], DEFAULT_MODEL)
+        self.assertEqual(call["max_output_tokens"], 700)
+        self.assertEqual(call["text"]["format"]["type"], "json_schema")
+        self.assertTrue(call["text"]["format"]["strict"])
+
+    def test_openai_provider_handles_incomplete_refusal_timeout_auth_rate_and_malformed(self):
+        evidence = (EvidenceItem("ev.one", "One", "Safe", {"value": "1"}),)
+        cases = (
+            _FakeResponse(_valid_payload(evidence_ids=["ev.one"], answer="The value is 1."), status="incomplete"),
+            _FakeResponse(_valid_payload(evidence_ids=["ev.one"], answer="The value is 1."), refusal=True),
+            TimeoutError("timeout"),
+            RuntimeError("authentication failed"),
+            RuntimeError("rate limit reached"),
+            _FakeRawResponse("{not-json"),
+        )
+        for response in cases:
+            with self.subTest(response=response):
+                provider = _FakeOpenAIProvider(_FakeOpenAIClient(response))
+                with self.assertRaises(ProviderError):
+                    provider.generate(question="What happened?", evidence=evidence, history=())
+
+    def test_synthetic_evaluation_passes_all_categories(self):
+        previous_key = os.environ.pop("OPENAI_API_KEY", None)
+        try:
+            result = run_synthetic_evaluation(self.data)
+        finally:
+            if previous_key is not None:
+                os.environ["OPENAI_API_KEY"] = previous_key
+        for category, stats in result["categories"].items():
+            with self.subTest(category=category):
+                self.assertEqual(stats["passed"], stats["total"])
+                self.assertEqual(stats["pass_rate"], 1)
 
 
 class _NoCallProvider:
@@ -162,6 +219,12 @@ class _FakeAskStreamlit:
 
     def chat_input(self, *_args, **_kwargs):
         return None
+
+    def text_input(self, *_args, **_kwargs):
+        return ""
+
+    def spinner(self, *_args, **_kwargs):
+        return _FakeAskColumn()
 
     def chat_message(self, name: str):
         self.chat_messages.append(name)
@@ -218,6 +281,56 @@ class _BadProvider:
         from dashboard.ask_trademirror import ProviderResult
 
         return ProviderResult(payload=_valid_payload(evidence_ids=["ev.missing"], answer="Unsupported 999."), provider_name="bad", mode_label="Bad")
+
+
+class _FakeOpenAIProvider(OpenAIResponsesProvider):
+    def __init__(self, fake_client):
+        super().__init__(model=DEFAULT_MODEL, timeout=20, max_output_tokens=700)
+        self.fake_client = fake_client
+
+    def _client(self):
+        return self.fake_client
+
+
+class _FakeOpenAIClient:
+    def __init__(self, response):
+        self.responses = _FakeResponses(response)
+
+
+class _FakeResponses:
+    def __init__(self, response):
+        self.response = response
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        if isinstance(self.response, Exception):
+            raise self.response
+        return self.response
+
+
+class _FakeResponse:
+    def __init__(self, payload, *, status="completed", refusal=False):
+        self.status = status
+        self.output_text = json.dumps(payload)
+        self.output = [_FakeOutputItem(refusal)] if refusal else []
+
+
+class _FakeRawResponse:
+    def __init__(self, text):
+        self.status = "completed"
+        self.output_text = text
+        self.output = []
+
+
+class _FakeOutputItem:
+    def __init__(self, refusal: bool):
+        self.content = [_FakeOutputPart("refusal" if refusal else "output_text")]
+
+
+class _FakeOutputPart:
+    def __init__(self, part_type: str):
+        self.type = part_type
 
 
 def _valid_payload(*, evidence_ids=None, answer="The value is 10."):
