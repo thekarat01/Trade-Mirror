@@ -425,7 +425,7 @@ class DashboardData:
     behavioral_root: Path | None = None
     behavioral_csv_files: Mapping[str, LoadedFile] | None = None
     behavioral_json_files: Mapping[str, LoadedFile] | None = None
-    source_label: str = "Demo data"
+    source_label: str = "Demo Data"
     validation_issues: tuple[ValidationIssue, ...] = ()
 
     @property
@@ -439,7 +439,7 @@ class DashboardData:
         return tuple(messages)
 
 
-def load_dashboard_data(root: str | Path = DEMO_DATA_DIR, *, source_label: str = "Demo data") -> DashboardData:
+def load_dashboard_data(root: str | Path = DEMO_DATA_DIR, *, source_label: str = "Demo Data") -> DashboardData:
     base = Path(root)
     csv_files = {name: _load_csv(base, name, columns) for name, columns in CSV_SCHEMAS.items()}
     json_files = {name: _load_json(base, name) for name in JSON_FILES}
@@ -475,7 +475,7 @@ def _behavioral_base(base: Path) -> Path:
     return base / "behavioral_insights"
 
 
-def load_validated_dashboard_data(root: str | Path = DEMO_DATA_DIR, *, source_label: str = "Demo data") -> DashboardData:
+def load_validated_dashboard_data(root: str | Path = DEMO_DATA_DIR, *, source_label: str = "Demo Data") -> DashboardData:
     data = load_dashboard_data(root, source_label=source_label)
     if data.validation_issues:
         raise DashboardValidationError(data.validation_issues)

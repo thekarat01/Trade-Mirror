@@ -34,7 +34,9 @@ py -3.11 -m streamlit run dashboard/app.py
 ```
 
 The default data directory is `demo/dashboard_data`, which contains sanitized
-synthetic outputs generated from `dashboard/generate_demo_data.py`.
+synthetic outputs generated from `dashboard/generate_demo_data.py`. Public beta
+deployments should use this default demo bundle unless a later private
+deployment plan explicitly supplies a sanitized, ignored output directory.
 
 ## Architecture
 
@@ -77,6 +79,26 @@ addresses, statements, tax files or brokerage exports.
 
 Only sanitized output directories should be selected in the dashboard. Public
 exports still require a separate privacy scan.
+
+The dashboard does not currently upload brokerage files. If a future upload
+workflow is added, uploaded files must be processed as temporary session data,
+must not be sent to external services, and should be deleted after the session
+where practical.
+
+## Streamlit Community Cloud
+
+For public beta deployment:
+
+- Entry file: `dashboard/app.py`
+- Python version: `runtime.txt`
+- Dependencies: `requirements.txt`
+- Default data: `demo/dashboard_data`
+- Optional secrets: `OPENAI_API_KEY` and `OPENAI_MODEL`
+
+Do not commit `.streamlit/secrets.toml`, `.env` files, raw exports, statements,
+tax forms, account identifiers or generated private outputs. Without
+`OPENAI_API_KEY`, Ask TradeMirror loads in deterministic demo mode and explains
+that live AI answers are unavailable.
 
 ## Pages
 

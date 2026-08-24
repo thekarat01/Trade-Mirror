@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import types
 import unittest
 
@@ -13,6 +14,7 @@ from dashboard.ask_trademirror import (
     ProviderError,
     answer_question,
     classify_question,
+    provider_from_environment,
     retrieve_evidence,
     validate_answer,
 )
@@ -127,6 +129,26 @@ class AskTradeMirrorTests(unittest.TestCase):
     def test_default_openai_model_is_supported_public_model_name(self):
         self.assertEqual(DEFAULT_MODEL, "gpt-5.6-terra")
         self.assertNotIn("codex", DEFAULT_MODEL.casefold())
+
+    def test_provider_reads_api_key_from_environment_or_streamlit_secrets(self):
+        previous_key = os.environ.pop("OPENAI_API_KEY", None)
+        previous_streamlit = sys.modules.get("streamlit")
+        try:
+            provider = provider_from_environment()
+            self.assertEqual(provider.provider_name, "deterministic")
+
+            sys.modules["streamlit"] = types.SimpleNamespace(secrets={"OPENAI_API_KEY": "secret-key", "OPENAI_MODEL": "secret-model"})
+            provider = provider_from_environment()
+            self.assertEqual(provider.provider_name, "openai")
+            self.assertEqual(provider.api_key, "secret-key")
+            self.assertEqual(provider.model, "secret-model")
+        finally:
+            if previous_key is not None:
+                os.environ["OPENAI_API_KEY"] = previous_key
+            if previous_streamlit is None:
+                sys.modules.pop("streamlit", None)
+            else:
+                sys.modules["streamlit"] = previous_streamlit
 
     def test_no_api_call_for_empty_or_overlong_question(self):
         self.assertEqual(answer_question(self.data, "", provider=_NoCallProvider())["answer_type"], "refusal")
@@ -297,7 +319,7 @@ class _BadProvider:
 
 class _FakeOpenAIProvider(OpenAIResponsesProvider):
     def __init__(self, fake_client):
-        super().__init__(model=DEFAULT_MODEL, timeout=20, max_output_tokens=700)
+        super().__init__(model=DEFAULT_MODEL, timeout=20, max_output_tokens=700, api_key="test-key")
         self.fake_client = fake_client
 
     def _client(self):

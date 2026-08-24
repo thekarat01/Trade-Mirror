@@ -145,13 +145,28 @@ def answer_question(
 
 
 def provider_from_environment() -> LLMProvider:
-    if not os.environ.get("OPENAI_API_KEY"):
+    api_key = _configured_secret("OPENAI_API_KEY")
+    if not api_key:
         return FakeLLMProvider()
     return OpenAIResponsesProvider(
-        model=os.environ.get("OPENAI_MODEL", DEFAULT_MODEL),
+        model=_configured_secret("OPENAI_MODEL") or DEFAULT_MODEL,
+        api_key=api_key,
         timeout=REQUEST_TIMEOUT_SECONDS,
         max_output_tokens=OUTPUT_TOKEN_LIMIT,
     )
+
+
+def _configured_secret(name: str) -> str:
+    value = os.environ.get(name)
+    if value:
+        return value
+    try:
+        import streamlit as st
+
+        secret_value = st.secrets.get(name, "")
+    except Exception:
+        return ""
+    return str(secret_value or "")
 
 
 def classify_question(question: str) -> RouteResult:
@@ -262,10 +277,11 @@ class OpenAIResponsesProvider:
     provider_name = "openai"
     mode_label = "OpenAI grounded explanation mode"
 
-    def __init__(self, *, model: str, timeout: int, max_output_tokens: int):
+    def __init__(self, *, model: str, timeout: int, max_output_tokens: int, api_key: str | None = None):
         self.model = model
         self.timeout = timeout
         self.max_output_tokens = max_output_tokens
+        self.api_key = api_key
 
     def generate(self, *, question: str, evidence: tuple[EvidenceItem, ...], history: tuple[Mapping[str, str], ...]) -> ProviderResult:
         client = self._client()
@@ -293,7 +309,7 @@ class OpenAIResponsesProvider:
             from openai import OpenAI
         except Exception as exc:  # pragma: no cover - depends on optional package
             raise ProviderError("OpenAI SDK is unavailable.") from exc
-        return OpenAI(timeout=self.timeout)
+        return OpenAI(timeout=self.timeout, api_key=self.api_key)
 
 
 class ProviderError(RuntimeError):

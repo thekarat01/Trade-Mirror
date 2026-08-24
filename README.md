@@ -98,6 +98,13 @@ py -3.11 -m pip install -e ".[dashboard]"
 py -3.11 -m streamlit run dashboard/app.py
 ```
 
+For a clean deployment-style local run from the repository root:
+
+```bash
+python -m pip install -r requirements.txt
+python -m streamlit run dashboard/app.py
+```
+
 Ask TradeMirror works in deterministic demo mode without an API key. To enable
 the optional OpenAI Responses API provider locally:
 
@@ -107,6 +114,13 @@ $env:OPENAI_API_KEY = "your-key"
 $env:OPENAI_MODEL = "gpt-5.6-terra"
 ```
 
+On Streamlit Community Cloud, configure these values in the app's Secrets
+manager instead of committing them:
+
+```toml
+OPENAI_API_KEY = "your-key"
+OPENAI_MODEL = "gpt-5.6-terra"
+```
 
 Raw brokerage files belong in `private/` or `data/raw/`. Both are ignored by
 Git. Never commit statements, tax forms, account identifiers, addresses, or raw
@@ -169,6 +183,34 @@ directory, for example:
 $env:TRADEMIRROR_DASHBOARD_DATA = "private_output/behavioral_insights_baseline"
 streamlit run dashboard/app.py
 ```
+
+## Streamlit Community Cloud public beta
+
+The public beta entry file is `dashboard/app.py`. The deployed app defaults to
+the committed synthetic bundle in `demo/dashboard_data/` and labels it **Demo
+Data**. These displayed results are illustrative and are not a real portfolio.
+
+Deployment checklist:
+
+1. Push only reviewed source code, documentation, tests and synthetic demo data
+   to a private or public GitHub repository.
+2. Confirm `private/`, `Private/`, `private_output/`, `data/raw/`, `.env*` and
+   `.streamlit/secrets.toml` are not tracked.
+3. In Streamlit Community Cloud, create a new app from the GitHub repository.
+4. Set the main file path to `dashboard/app.py`.
+5. Let Streamlit install from `requirements.txt`; `runtime.txt` pins Python
+   3.11.
+6. Optional: add `OPENAI_API_KEY` and `OPENAI_MODEL` in Streamlit Secrets. Do
+   not commit secrets to Git.
+7. Deploy and verify Overview, My Patterns, Ask TradeMirror, Cash & Positions,
+   Realized P&L and Data Quality.
+8. Verify the sidebar says `Data source: Synthetic demo data` and no local file
+   paths, account identifiers, raw descriptions or raw-row JSON appear.
+
+The public beta does not upload brokerage files. If upload support is added in a
+later milestone, uploaded files must be processed only as temporary session data,
+must not be sent to external services, and must be deleted after the session
+where practical.
 
 ## Repository map
 

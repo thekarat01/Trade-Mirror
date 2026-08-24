@@ -537,18 +537,38 @@ class DashboardDataTests(unittest.TestCase):
             else:
                 sys.modules["streamlit"] = previous
         rendered_sidebar = "\n".join(fake_streamlit.sidebar.captions)
-        self.assertEqual(data.source_label, "Demo data")
-        self.assertIn("Data source: Synthetic demo", rendered_sidebar)
+        self.assertEqual(data.source_label, "Demo Data")
+        self.assertIn("Data source: Synthetic demo data", rendered_sidebar)
         self.assertNotIn(str(DEMO_DATA_DIR), rendered_sidebar)
         self.assertNotIn("C:\\", rendered_sidebar)
         self.assertNotIn("djjos", rendered_sidebar)
 
     def test_shared_page_header_renders_complete_demo_badge(self):
         fake_streamlit = _FakeStreamlit(str(DEMO_DATA_DIR))
-        page_header(fake_streamlit, types.SimpleNamespace(source_label="Demo data"), "Title", "Caption")
-        self.assertIn("<div class='tm-badge'>Demo data</div>", fake_streamlit.markdowns[0])
+        page_header(fake_streamlit, types.SimpleNamespace(source_label="Demo Data"), "Title", "Caption")
+        rendered = "\n".join(fake_streamlit.markdowns)
+        self.assertIn("<div class='tm-badge'>Demo Data</div>", rendered)
+        self.assertIn("Illustrative demo results.", rendered)
+        self.assertIn("synthetic data only", rendered)
+        self.assertNotIn(str(DEMO_DATA_DIR), rendered)
+        self.assertNotIn("C:\\", rendered)
         self.assertEqual(fake_streamlit.titles, ["Title"])
         self.assertEqual(fake_streamlit.captions, ["Caption"])
+
+    def test_streamlit_public_beta_deployment_files_and_secret_ignores_exist(self):
+        root = Path(__file__).resolve().parents[1]
+        requirements = (root / "requirements.txt").read_text(encoding="utf-8")
+        runtime = (root / "runtime.txt").read_text(encoding="utf-8").strip()
+        config = (root / ".streamlit" / "config.toml").read_text(encoding="utf-8")
+        ignore = (root / ".gitignore").read_text(encoding="utf-8")
+
+        self.assertIn("streamlit", requirements)
+        self.assertIn("openai", requirements)
+        self.assertEqual(runtime, "python-3.11")
+        self.assertIn("headless = true", config)
+        self.assertIn(".streamlit/secrets.toml", ignore)
+        self.assertIn(".env", ignore)
+        self.assertIn("private_output/", ignore)
 
     def test_safe_dataframe_falls_back_when_native_renderer_dependency_is_blocked(self):
         fake_streamlit = _FakeStreamlit(str(DEMO_DATA_DIR))

@@ -52,6 +52,15 @@ $env:OPENAI_MODEL = "gpt-5.6-terra"
 
 `OPENAI_MODEL` is optional. The default model is `gpt-5.6-terra`.
 
+On Streamlit Community Cloud, set the same values in the app Secrets manager:
+
+```toml
+OPENAI_API_KEY = "your-key"
+OPENAI_MODEL = "gpt-5.6-terra"
+```
+
+Do not commit `.streamlit/secrets.toml`, `.env` files or API keys.
+
 Every OpenAI request uses the Responses API, `store: false`, no external tools,
 a bounded timeout, a conservative output-token limit and at most one retry.
 Conversation history is kept only in local Streamlit session state and is
@@ -59,10 +68,11 @@ bounded to recent turns.
 
 ## No-Key Demo Mode
 
-When `OPENAI_API_KEY` is absent, the page clearly labels itself `Demo
-explanation mode` and uses deterministic, pre-authored response templates
-grounded in the same synthetic evidence package. It does not pretend to be an
-LLM response.
+When `OPENAI_API_KEY` is absent from both environment variables and Streamlit
+Secrets, the page clearly labels itself `Demo explanation mode` and uses
+deterministic, pre-authored response templates grounded in the same synthetic
+evidence package. It also explains that live AI answers are unavailable. It does
+not pretend to be an LLM response.
 
 ## Supported Questions
 

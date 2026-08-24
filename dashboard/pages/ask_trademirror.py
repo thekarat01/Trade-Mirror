@@ -26,9 +26,12 @@ def render(st: Any, data: Any) -> None:
         unsafe_allow_html=True,
     )
     if provider.provider_name == "deterministic":
-        st.info("No OpenAI API key is configured. The synthetic demo uses deterministic, pre-authored explanations grounded in the same evidence package.")
-        with st.expander("Enable OpenAI locally"):
-            st.code(f"$env:OPENAI_API_KEY = \"your-key\"\n$env:OPENAI_MODEL = \"{DEFAULT_MODEL}\"", language="powershell")
+        st.info("Live AI answers are unavailable because no OpenAI API key is configured. The public demo still uses deterministic, pre-authored explanations grounded in the same evidence package.")
+        with st.expander("Enable OpenAI with a secure server-side secret"):
+            st.code(
+                f"OPENAI_API_KEY = \"your-key\"\nOPENAI_MODEL = \"{DEFAULT_MODEL}\"",
+                language="toml",
+            )
 
     st.subheader("Suggested questions")
     columns = st.columns(2)

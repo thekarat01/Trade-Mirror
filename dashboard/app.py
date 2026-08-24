@@ -71,8 +71,8 @@ def _render_page(renderer: PageRenderer, streamlit_module: Any, data: DashboardD
 
 def _load_data() -> DashboardData:
     root = _configured_data_root()
-    source_label = "Demo data" if root.resolve() == DEMO_DATA_DIR.resolve() else "Private sanitized data"
-    source_indicator = "Synthetic demo" if source_label == "Demo data" else "Private sanitized data"
+    source_label = "Demo Data" if root.resolve() == DEMO_DATA_DIR.resolve() else "Private sanitized data"
+    source_indicator = "Synthetic demo data" if source_label == "Demo Data" else "Private sanitized data"
     st.sidebar.caption(f"Data source: {source_indicator}")
     try:
         data = load_validated_dashboard_data(root, source_label=source_label)
