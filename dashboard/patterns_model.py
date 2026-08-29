@@ -50,6 +50,10 @@ def build_patterns_view_model(data: DashboardData) -> dict[str, Any]:
     priority_codes = {str(item.get("insight_code") or "") for item in priority}
     helped = _unique_behavior_cards(ranked.get("what_helped", []), exclude_codes=priority_codes)[:3]
     hurt = _unique_behavior_cards(ranked.get("what_hurt", []), exclude_codes=priority_codes)[:3]
+    priority_cards = [_card(item) for item in priority]
+    helped_cards = [_card(item) for item in helped]
+    hurt_cards = [_card(item) for item in hurt]
+    observations = _neutral_observations([*helped_cards, *hurt_cards])
     guardrails = _guardrail_rows(ranked.get("priority_guardrails", []), candidates, priority)[:3]
     model = {
         "available": True,
@@ -65,9 +69,10 @@ def build_patterns_view_model(data: DashboardData) -> dict[str, Any]:
         ],
         "performance_summary": _performance_summary(summary),
         "overall_confidence": _overall_confidence(candidates),
-        "priority_patterns": [_card(item) for item in priority],
-        "what_helped": [_card(item) for item in helped],
-        "what_hurt": [_card(item) for item in hurt],
+        "priority_patterns": priority_cards,
+        "what_helped": [card for card in helped_cards if card["direction"] == "HELPED"],
+        "what_hurt": [card for card in hurt_cards if card["direction"] == "HURT"],
+        "observations": observations,
         "guardrails": guardrails,
         "charts": _charts(data, summary),
         "reliability": _reliability(summary, validation),
@@ -220,13 +225,17 @@ def _unique_behavior_cards(items: list[Any], *, exclude_codes: set[str] | None =
 
 def _card(item: Mapping[str, Any]) -> dict[str, Any]:
     code = str(item.get("insight_code") or "")
+    metric = item.get("metric_value")
+    comparison = item.get("comparison_value")
+    finding_type = str(item.get("finding_type") or "")
+    direction = _direction_label(finding_type, code, metric, comparison)
     return {
         "title": _title_for(code),
-        "finding_type": _plain_type(str(item.get("finding_type") or "")),
-        "direction": _direction_label(str(item.get("finding_type") or "")),
+        "finding_type": _plain_type(finding_type, direction),
+        "direction": direction,
         "what_we_observed": str(item.get("finding") or ""),
-        "supporting_metric": _metric_for(code, item.get("metric_value")),
-        "comparison": _comparison_for(code, item.get("comparison_value")),
+        "supporting_metric": _metric_for(code, metric),
+        "comparison": _comparison_for(code, comparison),
         "eligible_trade_count": str(item.get("eligible_trade_count") or "0"),
         "confidence": _confidence_label(str(item.get("confidence") or "")),
         "why_it_matters": _why_it_matters(code),
@@ -234,6 +243,20 @@ def _card(item: Mapping[str, Any]) -> dict[str, Any]:
         "limitation": str(item.get("limitation") or ""),
         "supporting_evidence": [_evidence_label(str(value)) for value in item.get("supporting_aggregate_evidence", [])],
     }
+
+
+def _neutral_observations(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for card in cards:
+        if card["direction"] in {"HELPED", "HURT"}:
+            continue
+        title = str(card.get("title") or "")
+        if not title or title in seen:
+            continue
+        seen.add(title)
+        rows.append(card)
+    return rows[:3]
 
 
 def _guardrail_rows(
@@ -469,7 +492,9 @@ def _comparison_for(code: str, value: object) -> str:
     return str(value or "Unavailable")
 
 
-def _plain_type(value: str) -> str:
+def _plain_type(value: str, direction: str | None = None) -> str:
+    if direction in {"MIXED", "DIFFERED", "OBSERVATION"}:
+        return "Observation"
     if value == "helped":
         return "Helped"
     if value == "hurt":
@@ -477,7 +502,12 @@ def _plain_type(value: str) -> str:
     return "Pattern"
 
 
-def _direction_label(value: str) -> str:
+def _direction_label(value: str, code: str = "", metric: object = None, comparison: object = None) -> str:
+    if code == "asset_option_relative_result":
+        amount = parse_decimal(metric)
+        other = parse_decimal(comparison)
+        if amount is not None and amount <= 0:
+            return "DIFFERED" if other is not None and amount != other else "OBSERVATION"
     if value == "helped":
         return "HELPED"
     if value == "hurt":

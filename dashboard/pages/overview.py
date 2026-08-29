@@ -35,6 +35,11 @@ def render(st: Any, data: Any) -> None:
     with columns[5]:
         metric_card(st, "Review queue", f"Needs review: {metrics['review_count']}", kind="plain", emphasis="review")
 
+    st.markdown(
+        f"<div class='tm-note'>{overview_pnl_scope_note(data)}</div>",
+        unsafe_allow_html=True,
+    )
+
     st.subheader("What needs attention")
     safe_dataframe(st, attention_display_rows(data))
     st.caption("Use the Data Quality page for the detailed review queue.")
@@ -70,3 +75,14 @@ def render(st: Any, data: Any) -> None:
                 "Known-basis win rate": format_percent(metrics["known_basis_win_rate"]),
             }
         )
+
+
+def overview_pnl_scope_note(data: Any) -> str:
+    metrics = overview_metrics(data)
+    return (
+        f"Included net P&L is known-basis analytical FIFO equity plus option realized P&L through "
+        f"{format_date(metrics['as_of'])}. My Patterns can differ because it uses the separate high-confidence "
+        "completed-trade behavioral evidence package, which may have a different date range and excludes "
+        "limited-confidence or review-only records. Inspect Realized P&L for accounting support and My Patterns "
+        "for behavioral support."
+    )

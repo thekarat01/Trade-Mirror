@@ -56,8 +56,9 @@ class AskTradeMirrorTests(unittest.TestCase):
         finally:
             if previous_key is not None:
                 os.environ["OPENAI_API_KEY"] = previous_key
-        self.assertIn("Equity and option outcomes differed", response["answer"])
-        self.assertIn("ev.priority_patterns", response["evidence_ids"])
+        self.assertEqual(response["answer_type"], "data_quality")
+        self.assertIn("does not contain enough validated information", response["answer"])
+        self.assertEqual(response["evidence_ids"], [])
 
     def test_deterministic_router_refuses_unsupported_without_provider_call(self):
         for question in (

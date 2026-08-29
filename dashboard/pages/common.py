@@ -17,7 +17,8 @@ def page_header(st: Any, data: DashboardData, title: str, caption: str) -> None:
     if _is_demo_data(data):
         st.markdown(
             "<div class='tm-note'><strong>Illustrative demo results.</strong> "
-            "This public beta view uses synthetic data only. The numbers show how TradeMirror works and are not a real portfolio.</div>",
+            "This public demo uses synthetic data and does not accept brokerage credentials or personal transaction files. "
+            "The numbers show how TradeMirror works and are not a real portfolio.</div>",
             unsafe_allow_html=True,
         )
     st.title(title)

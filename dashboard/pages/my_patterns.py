@@ -4,7 +4,8 @@ from html import escape
 from decimal import Decimal
 from typing import Any
 
-from dashboard.formatters import format_currency
+from dashboard.data_loader import overview_metrics
+from dashboard.formatters import format_currency, format_date
 from dashboard.pages.common import decimal_chart_rows, metric_card, page_header, safe_chart, safe_dataframe, safe_structured_write
 from dashboard.patterns_model import PatternValidationError, build_patterns_view_model
 from dashboard.strategy_discovery import (
@@ -37,7 +38,7 @@ def render(st: Any, data: Any) -> None:
     st.caption(f"Analysis range: {model['date_range']}")
 
     _render_coverage(st, model)
-    _render_performance_summary(st, model)
+    _render_performance_summary(st, model, data)
     _render_strategy_discovery(st, data)
     _render_priority(st, model)
     _render_helped_hurt(st, model)
@@ -65,13 +66,17 @@ def _render_coverage(st: Any, model: dict[str, Any]) -> None:
         st.markdown(notes)
 
 
-def _render_performance_summary(st: Any, model: dict[str, Any]) -> None:
+def _render_performance_summary(st: Any, model: dict[str, Any], data: Any | None = None) -> None:
     st.subheader("Performance summary")
     summary = model["performance_summary"]
     columns = st.columns(3)
     for column, label in zip(columns, ("Net realized P&L", "High-confidence completed trades", "Win rate")):
         with column:
             metric_card(st, label, summary[label], kind="plain")
+    st.markdown(
+        f"<div class='tm-note'>{behavioral_pnl_scope_note(model, data)}</div>",
+        unsafe_allow_html=True,
+    )
     with st.expander("More performance context"):
         rows = [{"Measure": key, "Value": value} for key, value in summary.items()]
         safe_dataframe(st, rows)
@@ -96,8 +101,8 @@ def _render_strategy_discovery(st: Any, data: Any) -> None:
     st.subheader("One process experiment to consider")
     experiment = strategy["experiments"][0] if strategy["experiments"] else None
     if experiment:
+        experiment = _render_experiment_controls(st, experiment)
         _experiment_card(st, experiment)
-        _render_experiment_controls(st, experiment)
     else:
         st.info("No evidence-linked process experiment is available yet.")
 
@@ -166,15 +171,18 @@ def _experiment_card(st: Any, experiment: dict[str, str]) -> None:
     )
 
 
-def _render_experiment_controls(st: Any, experiment: dict[str, str]) -> None:
+def _render_experiment_controls(st: Any, experiment: dict[str, str]) -> dict[str, str]:
     if not hasattr(st, "selectbox") or not hasattr(st, "button"):
-        return
+        return experiment
     profile = load_strategy_profile()
     status_label = st.selectbox("Experiment decision", list(EXPERIMENT_OPTIONS.values()))
     status_key = next(key for key, value in EXPERIMENT_OPTIONS.items() if value == status_label)
     if st.button("Save experiment decision"):
         save_strategy_profile(with_experiment_response(profile, experiment["id"], status_key))
+        experiment = dict(experiment)
+        experiment["status"] = EXPERIMENT_OPTIONS[status_key]
         st.success("Experiment decision saved locally.")
+    return experiment
 
 
 def _render_priority(st: Any, model: dict[str, Any]) -> None:
@@ -190,7 +198,12 @@ def _render_priority(st: Any, model: dict[str, Any]) -> None:
 def _render_helped_hurt(st: Any, model: dict[str, Any]) -> None:
     helped = model["what_helped"]
     hurt = model["what_hurt"]
+    observations = model.get("observations", [])
     if not helped and not hurt:
+        if observations:
+            st.subheader("Other observations")
+            for card in observations:
+                _pattern_card(st, card, compact=True)
         return
     if helped and hurt:
         left, right = st.columns(2)
@@ -202,15 +215,19 @@ def _render_helped_hurt(st: Any, model: dict[str, Any]) -> None:
             st.subheader("What hurt")
             for card in hurt:
                 _pattern_card(st, card, compact=True)
-        return
-    st.subheader("What helped" if helped else "What hurt")
-    cards = helped or hurt
-    for card in cards:
-        _pattern_card(st, card, compact=True)
-    if not helped:
-        st.info("No positive pattern has enough additional evidence beyond the priority patterns.")
-    if not hurt:
-        st.info("No negative pattern has enough additional evidence beyond the priority patterns.")
+    else:
+        st.subheader("What helped" if helped else "What hurt")
+        cards = helped or hurt
+        for card in cards:
+            _pattern_card(st, card, compact=True)
+        if not helped:
+            st.info("No positive pattern has enough additional evidence beyond the priority patterns.")
+        if not hurt:
+            st.info("No negative pattern has enough additional evidence beyond the priority patterns.")
+    if observations:
+        st.subheader("Other observations")
+        for card in observations:
+            _pattern_card(st, card, compact=True)
 
 
 def _pattern_card(st: Any, card: dict[str, Any], *, compact: bool = False) -> None:
@@ -401,3 +418,17 @@ def _chart_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if isinstance(value, Decimal)
     }
     return decimal_chart_rows(rows, decimal_fields)
+
+
+def behavioral_pnl_scope_note(model: dict[str, Any], data: Any | None = None) -> str:
+    accounting_scope = ""
+    if data is not None:
+        accounting_as_of = format_date(overview_metrics(data)["as_of"])
+        accounting_scope = (
+            f" Overview uses included accounting realized P&L through {accounting_as_of}, so the two values can differ."
+        )
+    return (
+        f"Net realized P&L here is the high-confidence completed-trade behavioral sample for {model['date_range']}. "
+        "Limited-confidence trades, excluded matches, unknown-basis records and review-only records stay outside "
+        f"this behavioral metric.{accounting_scope} Inspect Supporting evidence, Realized P&L and Data Quality for the source details."
+    )

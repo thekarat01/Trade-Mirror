@@ -45,6 +45,7 @@ from dashboard.pages.cash_positions import (
 )
 from dashboard.pages import ask_trademirror, cash_positions, data_quality, my_patterns, overview, realized_pnl
 from dashboard.pages.common import page_header, safe_chart, safe_dataframe, safe_structured_write
+from dashboard.strategy_discovery import StrategyProfile
 
 
 class DashboardDataTests(unittest.TestCase):
@@ -549,7 +550,7 @@ class DashboardDataTests(unittest.TestCase):
         rendered = "\n".join(fake_streamlit.markdowns)
         self.assertIn("<div class='tm-badge'>Demo Data</div>", rendered)
         self.assertIn("Illustrative demo results.", rendered)
-        self.assertIn("synthetic data only", rendered)
+        self.assertIn("This public demo uses synthetic data and does not accept brokerage credentials or personal transaction files.", rendered)
         self.assertNotIn(str(DEMO_DATA_DIR), rendered)
         self.assertNotIn("C:\\", rendered)
         self.assertEqual(fake_streamlit.titles, ["Title"])
@@ -803,8 +804,52 @@ class DashboardDataTests(unittest.TestCase):
         model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
         cards = model["priority_patterns"] + model["what_helped"]
         helped = [card for card in cards if card["direction"] == "HELPED"]
-        self.assertTrue(helped)
         self.assertTrue(all(int(card["eligible_trade_count"]) >= 10 for card in helped))
+
+    def test_negative_comparative_result_is_not_labeled_helped(self):
+        model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
+        cards = model["priority_patterns"] + model["what_helped"] + model["what_hurt"] + model["observations"]
+        comparative = next(card for card in cards if card["title"] == "Equity and option outcomes differed")
+        self.assertEqual(comparative["supporting_metric"], "-$25.00")
+        self.assertEqual(comparative["direction"], "DIFFERED")
+        self.assertEqual(comparative["finding_type"], "Observation")
+        self.assertFalse(
+            any(card["direction"] == "HELPED" and card["supporting_metric"].startswith("-$") for card in cards)
+        )
+
+    def test_overview_and_patterns_explain_distinct_pnl_scopes(self):
+        data = load_dashboard_data(DEMO_DATA_DIR)
+        model = build_patterns_view_model(data)
+        overview_note = overview.overview_pnl_scope_note(data)
+        patterns_note = my_patterns.behavioral_pnl_scope_note(model, data)
+
+        self.assertIn("known-basis analytical FIFO equity plus option realized P&L", overview_note)
+        self.assertIn("through 2021-12-31", overview_note)
+        self.assertIn("high-confidence completed-trade behavioral evidence package", overview_note)
+        self.assertIn("high-confidence completed-trade behavioral sample for 2021-01-01 to 2022-06-08", patterns_note)
+        self.assertIn("Overview uses included accounting realized P&L through 2021-12-31", patterns_note)
+
+    def test_experiment_save_updates_visible_status_immediately(self):
+        saved: list[StrategyProfile] = []
+        original_load = my_patterns.load_strategy_profile
+        original_save = my_patterns.save_strategy_profile
+        my_patterns.load_strategy_profile = lambda: StrategyProfile({}, {}, {})
+        my_patterns.save_strategy_profile = lambda profile: saved.append(profile)
+        try:
+            fake_streamlit = _FakeExperimentStreamlit()
+            experiment = {
+                "id": "capital_purpose",
+                "title": "Distinguish investing capital from speculative capital",
+                "status": "Not selected",
+            }
+            updated = my_patterns._render_experiment_controls(fake_streamlit, experiment)
+        finally:
+            my_patterns.load_strategy_profile = original_load
+            my_patterns.save_strategy_profile = original_save
+
+        self.assertEqual(updated["status"], "Accepted")
+        self.assertEqual(saved[0].experiment_responses["capital_purpose"], "accepted")
+        self.assertEqual(fake_streamlit.successes, ["Experiment decision saved locally."])
 
     def test_behavioral_coverage_notes_render_as_text_not_python_list(self):
         model = build_patterns_view_model(load_dashboard_data(DEMO_DATA_DIR))
@@ -1198,6 +1243,21 @@ class _FakePatternsStreamlit:
 
     def write(self, value: object, **_kwargs) -> None:
         self.writes.append(value)
+
+
+class _FakeExperimentStreamlit:
+    def __init__(self):
+        self.successes: list[str] = []
+
+    def selectbox(self, _label: str, values: list[str], **_kwargs) -> str:
+        self.values = values
+        return "Accepted"
+
+    def button(self, _label: str, **_kwargs) -> bool:
+        return True
+
+    def success(self, text: str) -> None:
+        self.successes.append(text)
 
 
 class _FakeCashStreamlit:

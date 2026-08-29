@@ -74,6 +74,19 @@ class StrategyDiscoveryTests(unittest.TestCase):
         self.assertNotIn("you should buy", rendered)
         self.assertNotIn("price target", rendered)
 
+    def test_experiment_decision_persists_after_reload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "profile.json"
+            profile = with_experiment_response(StrategyProfile({}, {}, {}), "capital_purpose", "accepted")
+            save_strategy_profile(profile, path)
+
+            loaded = load_strategy_profile(path)
+            model = build_strategy_discovery_model(self.data, profile=loaded)
+            experiment = next(item for item in model["experiments"] if item["id"] == "capital_purpose")
+
+            self.assertEqual(experiment["status"], "Accepted")
+            self.assertIn("1 accepted process experiment", model["progress"]["status"])
+
     def test_strategy_context_is_privacy_safe(self):
         model = build_strategy_discovery_model(self.data)
         rendered = json.dumps(model["ask_context"], default=str).casefold()
