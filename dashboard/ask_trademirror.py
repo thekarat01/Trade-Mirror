@@ -10,6 +10,7 @@ from typing import Any, Mapping, Protocol
 from dashboard.data_loader import DashboardData
 from dashboard.formatters import format_currency, format_percent
 from dashboard.patterns_model import PatternValidationError, build_patterns_view_model
+from dashboard.pre_trade_checkins import checkin_summary, load_checkins
 from dashboard.strategy_discovery import ask_strategy_context
 
 
@@ -185,7 +186,7 @@ def classify_question(question: str) -> RouteResult:
         return RouteResult("tax_legal", "TradeMirror does not provide tax or legal conclusions.")
     if _contains_any(text, ("confidence", "reliable", "excluded", "data quality", "limitation", "why missing")):
         return RouteResult("reliability")
-    if _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect", "history suggest", "how i invested", "how invested")):
+    if _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect", "history suggest", "how i invested", "how invested", "check-in", "checkins", "check-ins", "documented exit", "exit condition", "currently testing", "motivated")):
         return RouteResult("guardrail")
     if _contains_any(text, ("guardrail", "process", "prioritize", "rule")):
         return RouteResult("guardrail")
@@ -221,12 +222,12 @@ def retrieve_evidence(data: DashboardData, question: str, *, route: str) -> tupl
         ])
     if route == "guardrail" or _contains_any(text, ("guardrail", "prioritize", "process")):
         items.append(EvidenceItem("ev.guardrails", "Process guardrails", "Evidence-linked guardrails generated from ranked aggregate patterns.", {"guardrails": model["guardrails"]}))
-    if route == "guardrail" or _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect")):
+    if route == "guardrail" or _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect", "check-in", "checkins", "check-ins", "documented exit", "exit condition", "currently testing", "motivated")):
         items.append(EvidenceItem(
             "ev.strategy_discovery",
             "Strategy discovery",
             "Observed behavior, possible interpretations, local intention responses and process experiments are kept distinct.",
-            ask_strategy_context(model),
+            ask_strategy_context(model, pre_trade_summary=_pre_trade_summary_for_data(data)),
         ))
     if _contains_any(text, ("help", "hurt", "pattern", "finding", "evidence", "skeptical", "perform", "activity", "busy")):
         items.append(EvidenceItem(
@@ -257,6 +258,8 @@ class FakeLLMProvider:
         text = question.casefold()
         if "confidence" in text or "reliable" in text or "excluded" in text or "limitation" in text or "quality" in text:
             payload = _reliability_answer(evidence_by_id)
+        elif "check-in" in text or "checkins" in text or "check-ins" in text or "documented exit" in text or "exit condition" in text or "currently testing" in text or "motivated" in text:
+            payload = _checkin_progress_answer(evidence_by_id, text)
         elif "experiment" in text:
             payload = _experiment_answer(evidence_by_id)
         elif "strategy" in text or "hypothesis" in text or "intention" in text or "history suggest" in text or "how i invested" in text or "how invested" in text:
@@ -589,6 +592,38 @@ def _experiment_answer(evidence: Mapping[str, EvidenceItem]) -> dict[str, Any]:
     )
 
 
+def _checkin_progress_answer(evidence: Mapping[str, EvidenceItem], text: str) -> dict[str, Any]:
+    context = evidence.get("ev.strategy_discovery")
+    if not context:
+        return _deterministic_unavailable()
+    experiments = context.data.get("process_experiments", [])
+    progress = context.data.get("pre_trade_checkin_progress", {})
+    current = next((item for item in experiments if item.get("status") == "Accepted"), experiments[0] if experiments else {})
+    experiment = str(current.get("experiment") or "No accepted process experiment is recorded yet")
+    evidence_id = str(current.get("evidence_id") or "ev.strategy_discovery")
+    if "motivated" in text:
+        answer = "The pre-trade check-in experiment is motivated by losing-trade holding-period evidence: 6 days versus 3 days."
+    elif "remain" in text or "remaining" in text:
+        answer = (
+            f"{progress.get('remaining_to_target', '20')} check-ins remain before the 20-check-in target. "
+            f"Current status is {progress.get('status', 'Not started')}."
+        )
+    elif "documented" in text or "exit condition" in text:
+        answer = (
+            f"{progress.get('exit_condition_checkins', '0')} completed check-ins include an exit condition before entry, "
+            f"for an exit-condition rate of {progress.get('exit_condition_percent', 'Not available')}."
+        )
+    else:
+        answer = f"The current process experiment is {experiment}. It is tied to {evidence_id}."
+    return _supported(
+        answer=answer,
+        evidence_ids=["ev.strategy_discovery", "ev.coverage"],
+        confidence="Medium",
+        guardrail="Use pre-trade check-ins to document your own exit condition before entry; TradeMirror does not approve trades.",
+        answer_type="guardrail",
+    )
+
+
 def _strategy_answer(evidence: Mapping[str, EvidenceItem]) -> dict[str, Any]:
     context = _data_path(evidence, "ev.strategy_discovery", "possible_interpretations") or []
     experiments = _data_path(evidence, "ev.strategy_discovery", "process_experiments") or []
@@ -636,6 +671,12 @@ def _combined_pattern_cards(model: Mapping[str, Any]) -> list[Mapping[str, Any]]
             seen.add(key)
             combined.append(item)
     return combined
+
+
+def _pre_trade_summary_for_data(data: DashboardData) -> Mapping[str, Any]:
+    if str(getattr(data, "source_label", "")).strip().casefold() == "demo data":
+        return checkin_summary([])
+    return checkin_summary(load_checkins())
 
 
 def _supported(

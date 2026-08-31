@@ -8,6 +8,7 @@ from dashboard.data_loader import overview_metrics
 from dashboard.formatters import format_currency, format_date
 from dashboard.pages.common import decimal_chart_rows, metric_card, page_header, safe_chart, safe_dataframe, safe_structured_write
 from dashboard.patterns_model import PatternValidationError, build_patterns_view_model
+from dashboard.pages.pre_trade_checkin import render_contextual_checkin
 from dashboard.strategy_discovery import (
     EXPERIMENT_OPTIONS,
     RESPONSE_OPTIONS,
@@ -108,6 +109,8 @@ def _render_strategy_discovery(st: Any, data: Any) -> None:
 
     st.subheader("Progress status")
     safe_structured_write(st, strategy["progress"])
+    if "completed_pre_trade_checkins" in strategy["progress"]:
+        render_contextual_checkin(st, data)
 
 
 def _strategy_hypothesis_card(st: Any, hypothesis: dict[str, str]) -> None:

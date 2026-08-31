@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from dashboard.data_loader import DashboardData
 from dashboard.formatters import format_currency, format_percent, parse_decimal
 from dashboard.patterns_model import PatternValidationError, build_patterns_view_model
+from dashboard.pre_trade_checkins import checkin_summary, load_checkins
 
 
 PROFILE_PATH = Path("private_output") / "strategy_discovery" / "profile.json"
@@ -104,9 +105,11 @@ def build_strategy_discovery_model(
     data: DashboardData,
     *,
     profile: StrategyProfile | None = None,
+    pre_trade_summary: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     patterns = build_patterns_view_model(data)
     profile = profile or load_strategy_profile()
+    pre_trade_summary = pre_trade_summary or _default_pre_trade_summary(data)
     summary = patterns["performance_summary"]
     charts = patterns["charts"]
     hypotheses = _hypotheses(patterns, profile)
@@ -117,8 +120,8 @@ def build_strategy_discovery_model(
         "hypotheses": hypotheses,
         "reflection_questions": _reflection_questions(patterns),
         "experiments": experiments,
-        "progress": _progress(profile, experiments),
-        "ask_context": ask_strategy_context(patterns, profile),
+        "progress": _progress(profile, experiments, pre_trade_summary),
+        "ask_context": ask_strategy_context(patterns, profile, pre_trade_summary),
         "summary": {
             "range": patterns["date_range"],
             "net_realized_pnl": summary["Net realized P&L"],
@@ -130,8 +133,13 @@ def build_strategy_discovery_model(
     return model
 
 
-def ask_strategy_context(patterns: Mapping[str, Any], profile: StrategyProfile | None = None) -> dict[str, Any]:
+def ask_strategy_context(
+    patterns: Mapping[str, Any],
+    profile: StrategyProfile | None = None,
+    pre_trade_summary: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     profile = profile or load_strategy_profile()
+    pre_trade_summary = pre_trade_summary or checkin_summary([])
     hypotheses = _hypotheses(patterns, profile)
     experiments = _experiments(patterns, profile)
     return {
@@ -153,6 +161,15 @@ def ask_strategy_context(patterns: Mapping[str, Any], profile: StrategyProfile |
             }
             for item in experiments
         ],
+        "pre_trade_checkin_progress": _public_pre_trade_progress(pre_trade_summary),
+        "pre_trade_experiment_evidence": {
+            "evidence_id": "ev.holding_period",
+            "finding": "Losing trades stayed open longer",
+            "historical_metric": "6 days versus 3 days",
+            "eligible_trades": "899",
+            "confidence": "Medium",
+            "limitation": "CSV exports lack intraday ordering; the relationship does not prove causation or predict returns.",
+        },
         "distinctions": [
             "Observed behavior is historical aggregate evidence.",
             "A hypothesis is a possible interpretation, not a conclusion.",
@@ -180,6 +197,12 @@ def _mirror(patterns: Mapping[str, Any]) -> list[dict[str, str]]:
         {"evidence_id": "ev.reentry", "label": "Re-entry after losses", "summary": _reentry_summary(rows["reentry"])},
         {"evidence_id": "ev.performance", "label": "Outcome", "summary": f"Included net realized P&L was {performance['Net realized P&L']} with a {performance['Win rate']} known-basis win rate."},
     ]
+
+
+def _default_pre_trade_summary(data: DashboardData) -> Mapping[str, Any]:
+    if str(getattr(data, "source_label", "")).strip().casefold() == "demo data":
+        return checkin_summary([])
+    return checkin_summary(load_checkins())
 
 
 def _tensions(patterns: Mapping[str, Any]) -> list[dict[str, str]]:
@@ -295,8 +318,25 @@ def _reflection_questions(patterns: Mapping[str, Any]) -> list[dict[str, str]]:
     return questions[:3]
 
 
-def _progress(profile: StrategyProfile, experiments: list[Mapping[str, str]]) -> dict[str, str]:
+def _progress(
+    profile: StrategyProfile,
+    experiments: list[Mapping[str, str]],
+    pre_trade_summary: Mapping[str, Any],
+) -> dict[str, str]:
     accepted = [item for item in experiments if item.get("status") == "Accepted"]
+    if profile.experiment_responses.get("pre_entry_exit") == "accepted" or any(item.get("id") == "pre_entry_exit" for item in accepted):
+        completed = int(pre_trade_summary.get("completed_checkins", 0))
+        exit_count = int(pre_trade_summary.get("exit_condition_checkins", 0))
+        pct = pre_trade_summary.get("exit_condition_percent")
+        pct_text = "Not available" if pct is None else f"{pct}%"
+        return {
+            "status": str(pre_trade_summary.get("status", "Not started")),
+            "completed_pre_trade_checkins": str(completed),
+            "exit_condition_before_entry": f"{exit_count} of {completed}",
+            "exit_condition_rate": pct_text,
+            "target": "20 completed trades or 90 days",
+            "post_adoption_result": "Do not claim improvement yet.",
+        }
     if not accepted:
         return {
             "status": "No accepted process experiment yet.",
@@ -307,6 +347,18 @@ def _progress(profile: StrategyProfile, experiments: list[Mapping[str, str]]) ->
         "status": f"{len(accepted)} accepted process experiment(s) recorded locally.",
         "evidence_state": "Not enough refreshed post-adoption evidence exists yet.",
         "post_adoption_result": "Do not claim improvement yet.",
+    }
+
+
+def _public_pre_trade_progress(summary: Mapping[str, Any]) -> dict[str, str]:
+    pct = summary.get("exit_condition_percent")
+    return {
+        "completed_checkins": str(summary.get("completed_checkins", 0)),
+        "exit_condition_checkins": str(summary.get("exit_condition_checkins", 0)),
+        "exit_condition_percent": "Not available" if pct is None else f"{pct}%",
+        "remaining_to_target": str(summary.get("remaining_to_target", 0)),
+        "target": "20 completed trades or 90 days",
+        "status": str(summary.get("status", "Not started")),
     }
 
 

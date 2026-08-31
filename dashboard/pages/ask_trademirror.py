@@ -14,6 +14,8 @@ SUGGESTED_QUESTIONS = (
     "Did I hold losing trades longer?",
     "Were losses concentrated?",
     "Why was some data excluded?",
+    "Have I documented exit conditions consistently?",
+    "How many check-ins remain?",
 )
 
 
