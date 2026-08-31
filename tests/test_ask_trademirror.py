@@ -5,6 +5,7 @@ import os
 import sys
 import types
 import unittest
+from unittest.mock import patch
 
 from dashboard.ask_trademirror import (
     DEFAULT_MODEL,
@@ -59,6 +60,44 @@ class AskTradeMirrorTests(unittest.TestCase):
         self.assertEqual(response["answer_type"], "data_quality")
         self.assertIn("does not contain enough validated information", response["answer"])
         self.assertEqual(response["evidence_ids"], [])
+
+    def test_session_one_questions_are_supported_or_safely_unavailable(self):
+        questions = [
+            "What appears to have hurt my historical results most?",
+            "What does my history suggest about how I invested?",
+            "Which finding has the strongest evidence?",
+            "Which finding should I be most skeptical about?",
+            "What is one process experiment supported by the evidence?",
+            "What appeared to help?",
+        ]
+        previous_key = os.environ.pop("OPENAI_API_KEY", None)
+        try:
+            responses = [answer_question(self.data, question) for question in questions]
+        finally:
+            if previous_key is not None:
+                os.environ["OPENAI_API_KEY"] = previous_key
+        for response in responses:
+            self.assertNotEqual(response["answer_type"], "refusal")
+            self.assertTrue(set(response["evidence_ids"]).issubset({item["evidence_id"] for item in response["evidence"]}))
+
+    def test_what_helped_uses_validated_helped_bucket_when_present(self):
+        model = _minimal_patterns_model()
+        model["what_helped"] = [{
+            "title": "Process discipline improved",
+            "direction": "HELPED",
+            "what_we_observed": "Validated helped evidence was present.",
+            "supporting_metric": "$12.00",
+            "comparison": "$0.00",
+            "eligible_trade_count": "3",
+            "confidence": "High",
+            "guardrail": "Keep the process rule separate from any trading recommendation.",
+            "limitation": "Historical association is not causation.",
+        }]
+        with patch("dashboard.ask_trademirror.build_patterns_view_model", return_value=model):
+            response = answer_question(self.data, "What appeared to help?")
+        self.assertEqual(response["answer_type"], "supported")
+        self.assertIn("Process discipline improved", response["answer"])
+        self.assertIn("ev.priority_patterns", response["evidence_ids"])
 
     def test_deterministic_router_refuses_unsupported_without_provider_call(self):
         for question in (
@@ -226,6 +265,32 @@ class _NoCallProvider:
 
     def generate(self, **_kwargs):
         raise AssertionError("Provider should not be called")
+
+
+def _minimal_patterns_model():
+    return {
+        "coverage": {
+            "High-confidence completed trades": "3",
+            "Limited-confidence trades": "0",
+            "Excluded matches": "0",
+            "High-confidence coverage": "100%",
+            "Date range": "2021-01-01 to 2021-12-31",
+        },
+        "performance_summary": {"Net realized P&L": "$12.00"},
+        "reliability": {"limitations": ["Historical association is not causation."]},
+        "guardrails": [],
+        "priority_patterns": [],
+        "what_hurt": [],
+        "what_helped": [],
+        "observations": [],
+        "charts": {
+            "asset_results": [],
+            "holding_period_results": [],
+            "loss_concentration": [],
+            "monthly_activity": [],
+            "reentry": [],
+        },
+    }
 
 
 class _FakeAskStreamlit:

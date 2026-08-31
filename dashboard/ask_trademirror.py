@@ -185,11 +185,11 @@ def classify_question(question: str) -> RouteResult:
         return RouteResult("tax_legal", "TradeMirror does not provide tax or legal conclusions.")
     if _contains_any(text, ("confidence", "reliable", "excluded", "data quality", "limitation", "why missing")):
         return RouteResult("reliability")
-    if _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect")):
+    if _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect", "history suggest", "how i invested", "how invested")):
         return RouteResult("guardrail")
     if _contains_any(text, ("guardrail", "process", "prioritize", "rule")):
         return RouteResult("guardrail")
-    if _contains_any(text, ("pattern", "hurt", "help", "option", "equity", "hold", "loss", "activity", "re-entry", "reentry", "perform")):
+    if _contains_any(text, ("pattern", "finding", "evidence", "skeptical", "hurt", "help", "option", "equity", "hold", "loss", "activity", "re-entry", "reentry", "perform")):
         return RouteResult("supported")
     return RouteResult("unrelated", "I can answer questions about TradeMirror’s validated historical behavioral evidence.")
 
@@ -228,8 +228,13 @@ def retrieve_evidence(data: DashboardData, question: str, *, route: str) -> tupl
             "Observed behavior, possible interpretations, local intention responses and process experiments are kept distinct.",
             ask_strategy_context(model),
         ))
-    if _contains_any(text, ("help", "hurt", "pattern", "perform", "activity", "busy")):
-        items.append(EvidenceItem("ev.priority_patterns", "Priority patterns", "Top evidence-backed behavioral patterns, excluding overall performance summary.", {"patterns": model["priority_patterns"]}))
+    if _contains_any(text, ("help", "hurt", "pattern", "finding", "evidence", "skeptical", "perform", "activity", "busy")):
+        items.append(EvidenceItem(
+            "ev.priority_patterns",
+            "Priority patterns",
+            "Top evidence-backed behavioral patterns, excluding overall performance summary.",
+            {"patterns": _combined_pattern_cards(model)},
+        ))
     if _contains_any(text, ("option", "equity")):
         items.append(EvidenceItem("ev.asset_results", "Equity versus options", "Aggregate outcomes by asset type.", {"rows": model["charts"]["asset_results"]}))
     if _contains_any(text, ("hold", "holding", "losing", "winner")):
@@ -250,10 +255,16 @@ class FakeLLMProvider:
     def generate(self, *, question: str, evidence: tuple[EvidenceItem, ...], history: tuple[Mapping[str, str], ...]) -> ProviderResult:
         evidence_by_id = {item.evidence_id: item for item in evidence}
         text = question.casefold()
-        if "confidence" in text or "excluded" in text or "limitation" in text or "quality" in text:
+        if "confidence" in text or "reliable" in text or "excluded" in text or "limitation" in text or "quality" in text:
             payload = _reliability_answer(evidence_by_id)
-        elif "strategy" in text or "hypothesis" in text or "intention" in text or "experiment" in text:
+        elif "experiment" in text:
+            payload = _experiment_answer(evidence_by_id)
+        elif "strategy" in text or "hypothesis" in text or "intention" in text or "history suggest" in text or "how i invested" in text or "how invested" in text:
             payload = _strategy_answer(evidence_by_id)
+        elif "strongest evidence" in text or "strongest finding" in text or "finding has the strongest" in text:
+            payload = _patterns_answer(evidence_by_id)
+        elif "skeptical" in text:
+            payload = _skepticism_answer(evidence_by_id)
         elif "guardrail" in text or "prioritize" in text or "process" in text:
             payload = _guardrail_answer(evidence_by_id)
         elif "option" in text or "equity" in text:
@@ -559,6 +570,25 @@ def _guardrail_answer(evidence: Mapping[str, EvidenceItem]) -> dict[str, Any]:
     )
 
 
+def _experiment_answer(evidence: Mapping[str, EvidenceItem]) -> dict[str, Any]:
+    experiments = _data_path(evidence, "ev.strategy_discovery", "process_experiments") or []
+    if not experiments:
+        return _guardrail_answer(evidence)
+    first = experiments[0]
+    success_metric = str(first.get("success_metric") or "the stated process metric")
+    measurement_period = str(first.get("measurement_period") or "the next review period")
+    return _supported(
+        answer=(
+            f"One process experiment supported by the evidence is {first['experiment']}. "
+            f"It measures {success_metric} over {measurement_period}."
+        ),
+        evidence_ids=["ev.strategy_discovery", "ev.coverage"],
+        confidence=str(first.get("confidence", "Medium")),
+        guardrail=str(first.get("experiment", "")),
+        answer_type="guardrail",
+    )
+
+
 def _strategy_answer(evidence: Mapping[str, EvidenceItem]) -> dict[str, Any]:
     context = _data_path(evidence, "ev.strategy_discovery", "possible_interpretations") or []
     experiments = _data_path(evidence, "ev.strategy_discovery", "process_experiments") or []
@@ -574,6 +604,38 @@ def _strategy_answer(evidence: Mapping[str, EvidenceItem]) -> dict[str, Any]:
         guardrail=guardrail,
         answer_type="guardrail",
     )
+
+
+def _skepticism_answer(evidence: Mapping[str, EvidenceItem]) -> dict[str, Any]:
+    patterns = _data_path(evidence, "ev.priority_patterns", "patterns") or []
+    if not patterns:
+        return _reliability_answer(evidence)
+    candidate = next((item for item in reversed(patterns) if item.get("limitation")), patterns[-1])
+    return _supported(
+        answer=(
+            f"The finding to treat with the most skepticism is {candidate['title']}: "
+            f"{candidate['limitation']}"
+        ),
+        evidence_ids=["ev.priority_patterns", "ev.coverage"],
+        confidence=str(candidate.get("confidence", "Medium")),
+        guardrail="Use the limitation as a review boundary before treating the pattern as a process conclusion.",
+        answer_type="data_quality",
+    )
+
+
+def _combined_pattern_cards(model: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    combined: list[Mapping[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for section in ("priority_patterns", "what_hurt", "what_helped", "observations"):
+        for item in model.get(section, []) or []:
+            if not isinstance(item, Mapping):
+                continue
+            key = (str(item.get("title") or ""), str(item.get("direction") or ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            combined.append(item)
+    return combined
 
 
 def _supported(
