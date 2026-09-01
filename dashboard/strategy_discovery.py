@@ -354,8 +354,15 @@ def _public_pre_trade_progress(summary: Mapping[str, Any]) -> dict[str, str]:
     pct = summary.get("exit_condition_percent")
     return {
         "completed_checkins": str(summary.get("completed_checkins", 0)),
+        "pre_entry_checkins": str(summary.get("pre_entry_checkins", 0)),
         "exit_condition_checkins": str(summary.get("exit_condition_checkins", 0)),
         "exit_condition_percent": "Not available" if pct is None else f"{pct}%",
+        "reviews_completed": str(summary.get("reviews_completed", 0)),
+        "reviews_on_time": str(summary.get("reviews_on_time", 0)),
+        "plans_followed": str(summary.get("plans_followed", 0)),
+        "plans_changed": str(summary.get("plans_changed", 0)),
+        "plans_ignored": str(summary.get("plans_ignored", 0)),
+        "decision_quality_evidence": str(summary.get("decision_quality_evidence", "Insufficient evidence")),
         "remaining_to_target": str(summary.get("remaining_to_target", 0)),
         "target": "20 completed trades or 90 days",
         "status": str(summary.get("status", "Not started")),

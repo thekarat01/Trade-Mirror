@@ -186,7 +186,7 @@ def classify_question(question: str) -> RouteResult:
         return RouteResult("tax_legal", "TradeMirror does not provide tax or legal conclusions.")
     if _contains_any(text, ("confidence", "reliable", "excluded", "data quality", "limitation", "why missing")):
         return RouteResult("reliability")
-    if _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect", "history suggest", "how i invested", "how invested", "check-in", "checkins", "check-ins", "documented exit", "exit condition", "currently testing", "motivated")):
+    if _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect", "history suggest", "how i invested", "how invested", "check-in", "checkins", "check-ins", "documented exit", "exit condition", "currently testing", "motivated", "decision review", "reviews completed", "plans followed", "plans changed", "plans ignored")):
         return RouteResult("guardrail")
     if _contains_any(text, ("guardrail", "process", "prioritize", "rule")):
         return RouteResult("guardrail")
@@ -222,7 +222,7 @@ def retrieve_evidence(data: DashboardData, question: str, *, route: str) -> tupl
         ])
     if route == "guardrail" or _contains_any(text, ("guardrail", "prioritize", "process")):
         items.append(EvidenceItem("ev.guardrails", "Process guardrails", "Evidence-linked guardrails generated from ranked aggregate patterns.", {"guardrails": model["guardrails"]}))
-    if route == "guardrail" or _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect", "check-in", "checkins", "check-ins", "documented exit", "exit condition", "currently testing", "motivated")):
+    if route == "guardrail" or _contains_any(text, ("strategy", "hypothesis", "intention", "intentional", "experiment", "reflect", "check-in", "checkins", "check-ins", "documented exit", "exit condition", "currently testing", "motivated", "decision review", "reviews completed", "plans followed", "plans changed", "plans ignored")):
         items.append(EvidenceItem(
             "ev.strategy_discovery",
             "Strategy discovery",
@@ -258,7 +258,7 @@ class FakeLLMProvider:
         text = question.casefold()
         if "confidence" in text or "reliable" in text or "excluded" in text or "limitation" in text or "quality" in text:
             payload = _reliability_answer(evidence_by_id)
-        elif "check-in" in text or "checkins" in text or "check-ins" in text or "documented exit" in text or "exit condition" in text or "currently testing" in text or "motivated" in text:
+        elif "check-in" in text or "checkins" in text or "check-ins" in text or "documented exit" in text or "exit condition" in text or "currently testing" in text or "motivated" in text or "decision review" in text or "reviews completed" in text or "plans followed" in text or "plans changed" in text or "plans ignored" in text:
             payload = _checkin_progress_answer(evidence_by_id, text)
         elif "experiment" in text:
             payload = _experiment_answer(evidence_by_id)
@@ -612,6 +612,13 @@ def _checkin_progress_answer(evidence: Mapping[str, EvidenceItem], text: str) ->
         answer = (
             f"{progress.get('exit_condition_checkins', '0')} completed check-ins include an exit condition before entry, "
             f"for an exit-condition rate of {progress.get('exit_condition_percent', 'Not available')}."
+        )
+    elif "review" in text or "follow" in text or "changed" in text or "ignored" in text:
+        answer = (
+            f"{progress.get('reviews_completed', '0')} decision reviews are complete. "
+            f"Plans followed: {progress.get('plans_followed', '0')}; changed: {progress.get('plans_changed', '0')}; "
+            f"ignored: {progress.get('plans_ignored', '0')}. "
+            f"Decision-quality evidence is {progress.get('decision_quality_evidence', 'Insufficient evidence')}."
         )
     else:
         answer = f"The current process experiment is {experiment}. It is tied to {evidence_id}."
