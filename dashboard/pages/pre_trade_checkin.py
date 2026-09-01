@@ -20,8 +20,10 @@ from dashboard.pre_trade_checkins import (
     decisions_to_review_rows,
     demo_session_checkins,
     load_checkins,
+    review_reminder,
     review_summary_for_confirmation,
     summary_for_confirmation,
+    update_checkin,
     update_demo_session_review,
     validate_checkin,
     validate_review,
@@ -101,6 +103,15 @@ def render_decision_reviews(st: Any, data: Any) -> None:
     labels = [_review_label(row) for row in reviewable]
     selected_label = st.selectbox("Decision to review", labels)
     selected = reviewable[labels.index(selected_label)]
+    _render_timing_correction(st, selected, demo_mode=demo_mode)
+    reminder = review_reminder(selected)
+    is_upcoming = reminder.startswith("upcoming")
+    review_open = not is_upcoming or bool(st.session_state.get(f"review_early_{selected['id']}"))
+    if is_upcoming and not review_open:
+        st.info(f"This review is {reminder}. Keep it simple for now, or review early if the trigger already occurred.")
+        if st.button("Review early", use_container_width=True):
+            st.session_state[f"review_early_{selected['id']}"] = True
+        return
     values = _review_form_values(st)
     issues = validate_review(values)
     with st.expander("Review summary"):
@@ -124,7 +135,7 @@ def _form_values(st: Any) -> dict[str, str]:
     with columns[0]:
         asset_type = st.selectbox("Asset type", list(ASSET_TYPES))
         trade_purpose = st.selectbox("Trade purpose", list(TRADE_PURPOSES))
-        entry_timing = _choice(st, "When was this completed?", {"before_entry": "Before entry", "after_entry": "After entry", "unspecified": "Not specified"})
+        entry_timing = _choice(st, "When was this completed?", {"before_entry": "Before entering the position", "after_entry": "After entering the position"})
         entry_rationale = _text_area(st, "Entry rationale in one or two sentences", "")
     with columns[1]:
         loss_invalidation_condition = st.text_input("Loss or thesis-invalidation condition", value="")
@@ -152,12 +163,12 @@ def _review_form_values(st: Any) -> dict[str, str]:
     today = date.today().isoformat()
     columns = st.columns(2)
     with columns[0]:
-        thesis_status = st.selectbox("Thesis status", list(THESIS_STATUSES))
-        current_status = st.selectbox("Current status", list(CURRENT_STATUSES))
-        outcome = st.selectbox("Outcome", list(OUTCOMES))
-        plan_adherence = st.selectbox("Did you follow the original plan?", list(PLAN_FOLLOWED_OPTIONS))
+        thesis_status = _choice_with_placeholder(st, "Thesis status", THESIS_STATUSES)
+        current_status = _choice_with_placeholder(st, "Current status", CURRENT_STATUSES)
+        outcome = _choice_with_placeholder(st, "Outcome", OUTCOMES)
+        plan_adherence = _choice_with_placeholder(st, "Did you follow the original plan?", PLAN_FOLLOWED_OPTIONS)
     with columns[1]:
-        review_trigger_occurred = _choice(st, "Did the original review trigger occur?", {"yes": "Yes", "no": "No", "uncertain": "Uncertain"})
+        review_trigger_occurred = _choice(st, "Did the original review trigger occur?", {"": "Select an answer", "yes": "Yes", "no": "No", "uncertain": "Uncertain"})
         decision_review_date = st.text_input("Decision review date", value=today)
         manual_outcome = st.text_input("Optional outcome amount or percent", value="")
         plan_change_reason = st.text_input("Reason for changing the plan", value="")
@@ -189,6 +200,37 @@ def _review_form_values(st: Any) -> dict[str, str]:
     }
 
 
+def _render_timing_correction(st: Any, selected: Mapping[str, Any], *, demo_mode: bool) -> None:
+    current = str(selected.get("entry_timing") or "")
+    labels = {
+        "before_entry": "Before entering the position",
+        "after_entry": "After entering the position",
+        "unspecified": "Timing not recorded",
+        "": "Timing not recorded",
+    }
+    options = ["Timing not recorded", "Before entering the position", "After entering the position"]
+    selected_label = labels.get(current, "Timing not recorded")
+    choice = st.selectbox("Check-in timing", options, index=options.index(selected_label))
+    new_value = {
+        "Before entering the position": "before_entry",
+        "After entering the position": "after_entry",
+        "Timing not recorded": "unspecified",
+    }[choice]
+    if new_value != (current or "unspecified") and st.button("Update timing", use_container_width=True):
+        if demo_mode:
+            rows = demo_session_checkins(st.session_state)
+            updated = []
+            for row in rows:
+                if row.get("id") == selected.get("id"):
+                    updated.append({**row, "entry_timing": new_value})
+                else:
+                    updated.append(row)
+            st.session_state["pre_trade_checkins_demo"] = updated
+        else:
+            update_checkin(str(selected["id"]), {"entry_timing": new_value})
+        st.success("Timing updated locally.")
+
+
 def _text_area(st: Any, label: str, value: str) -> str:
     if hasattr(st, "text_area"):
         return st.text_area(label, value=value)
@@ -201,6 +243,21 @@ def _choice(st: Any, label: str, choices: dict[str, str]) -> str:
         if value == display:
             return key
     return next(iter(choices))
+
+
+def _choice_with_placeholder(st: Any, label: str, values: tuple[str, ...]) -> str:
+    labels = ["Select an answer", *[_title_label(value) for value in values]]
+    selected = st.selectbox(label, labels)
+    if selected == "Select an answer":
+        return ""
+    for value in values:
+        if _title_label(value) == selected:
+            return value
+    return ""
+
+
+def _title_label(value: str) -> str:
+    return value.replace("_", " ").title()
 
 
 def _review_label(row: Mapping[str, Any]) -> str:

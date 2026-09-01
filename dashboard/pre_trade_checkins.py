@@ -138,12 +138,17 @@ def update_checkin(
     now: Callable[[], datetime] | None = None,
 ) -> dict[str, Any]:
     checkins = load_checkins(path)
+    cleaned_updates = {
+        key: value
+        for key, value in _clean_values(updates).items()
+        if key in updates
+    }
     for index, row in enumerate(checkins):
         if row.get("id") != checkin_id:
             continue
         updated = {
             **row,
-            **_clean_values(updates),
+            **cleaned_updates,
             "updated_at": _timestamp(now),
         }
         if str(updates.get("status") or "") in STATUSES:
@@ -258,7 +263,7 @@ def checkin_summary(checkins: Iterable[Mapping[str, Any]], *, today: date | None
     rows = list(checkins)
     completed = [row for row in rows if row.get("status") in {"completed", "reviewed"}]
     reviewed = [row for row in rows if _review_completed(row)]
-    pre_entry = [row for row in completed if row.get("entry_timing") in {"", "before_entry"}]
+    pre_entry = [row for row in completed if row.get("entry_timing") == "before_entry"]
     on_time = [row for row in reviewed if _review_on_time(row)]
     followed = [row for row in reviewed if _nested(row.get("decision_review")).get("plan_adherence") == "followed"]
     changed = [row for row in reviewed if _nested(row.get("decision_review")).get("plan_adherence") == "changed"]
@@ -355,12 +360,12 @@ def review_reminder(checkin: Mapping[str, Any], *, today: date | None = None) ->
 
 
 def entry_timing_label(checkin: Mapping[str, Any]) -> str:
-    value = _text(checkin.get("entry_timing")) or "before_entry"
+    value = _text(checkin.get("entry_timing"))
     return {
         "before_entry": "Completed before entry",
         "after_entry": "Completed after entry",
-        "unspecified": "Not specified",
-    }.get(value, "Not specified")
+        "unspecified": "Timing not recorded",
+    }.get(value, "Timing not recorded")
 
 
 def review_summary_for_confirmation(values: Mapping[str, Any]) -> list[dict[str, str]]:
@@ -431,8 +436,6 @@ def _public_record(row: Mapping[str, Any]) -> dict[str, Any]:
 
 def _clean_values(values: Mapping[str, Any]) -> dict[str, str]:
     cleaned = {field: _sanitize_text(values.get(field)) for field in CHECKIN_FIELDS}
-    if not cleaned.get("entry_timing"):
-        cleaned["entry_timing"] = "before_entry"
     return cleaned
 
 

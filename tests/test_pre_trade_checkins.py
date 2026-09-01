@@ -11,6 +11,7 @@ from unittest.mock import patch
 from dashboard.ask_trademirror import answer_question, retrieve_evidence
 from dashboard.data_loader import DEMO_DATA_DIR, load_dashboard_data
 from dashboard.pages.pre_trade_checkin import render_contextual_checkin
+import dashboard.pages.pre_trade_checkin as pre_trade_page
 from dashboard.pre_trade_checkins import (
     add_demo_session_checkin,
     checkin_progress_rows,
@@ -171,6 +172,75 @@ class PreTradeCheckInTests(unittest.TestCase):
         self.assertEqual(rows[1]["Timing"], "Completed after entry")
         self.assertEqual(rows[1]["Reminder"], "upcoming in 1 day(s)")
 
+    def test_legacy_unknown_timing_is_not_labeled_or_counted_as_pre_entry(self):
+        rows = [
+            {**VALID_CHECKIN, "id": "legacy", "status": "completed", "review_date": "2026-09-01", "entry_timing": ""},
+            {**VALID_CHECKIN, "id": "explicit", "status": "completed", "review_date": "2026-09-02", "entry_timing": "before_entry"},
+        ]
+        display = decisions_to_review_rows(rows, today=date(2026, 9, 1))
+        self.assertEqual(display[0]["Timing"], "Timing not recorded")
+        self.assertEqual(display[1]["Timing"], "Completed before entry")
+        summary = checkin_summary(rows, today=date(2026, 9, 1))
+        self.assertEqual(summary["completed_checkins"], 2)
+        self.assertEqual(summary["pre_entry_checkins"], 1)
+
+    def test_timing_can_be_corrected_without_changing_other_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkins.json"
+            created = create_checkin(
+                {**VALID_CHECKIN, "entry_timing": ""},
+                path=path,
+                id_factory=lambda: "checkin_timing_1",
+                now=lambda: datetime(2026, 8, 31, 12, tzinfo=timezone.utc),
+            )
+            self.assertEqual(created["entry_timing"], "")
+            updated = update_checkin(
+                "checkin_timing_1",
+                {"entry_timing": "after_entry"},
+                path=path,
+                now=lambda: datetime(2026, 9, 1, 12, tzinfo=timezone.utc),
+            )
+            self.assertEqual(updated["entry_timing"], "after_entry")
+            self.assertEqual(updated["entry_rationale"], VALID_CHECKIN["entry_rationale"])
+            self.assertEqual(updated["loss_invalidation_condition"], VALID_CHECKIN["loss_invalidation_condition"])
+
+    def test_review_form_uses_neutral_defaults_and_requires_explicit_answers(self):
+        streamlit = _ContextualCheckInStreamlit()
+        values = pre_trade_page._review_form_values(streamlit)
+        self.assertEqual(values["thesis_status"], "")
+        self.assertEqual(values["current_status"], "")
+        self.assertEqual(values["outcome"], "")
+        self.assertEqual(values["review_trigger_occurred"], "")
+        self.assertEqual(values["plan_adherence"], "")
+        issues = validate_review(values)
+        fields = {issue.field for issue in issues}
+        self.assertGreaterEqual(fields, {"thesis_status", "current_status", "outcome", "review_trigger_occurred", "plan_adherence"})
+        rendered = json.dumps(values)
+        self.assertNotIn("intact", rendered)
+        self.assertNotIn("gain", rendered)
+        self.assertNotIn("followed", rendered)
+
+    def test_upcoming_review_is_collapsed_until_review_early_is_selected(self):
+        streamlit = _ContextualCheckInStreamlit()
+        streamlit.session_state = {}
+        private_data = replace(self.data, source_label="Private sanitized data")
+        upcoming = {**VALID_CHECKIN, "id": "upcoming", "status": "completed", "review_date": "2099-01-01", "entry_timing": "before_entry"}
+        with patch("dashboard.pages.pre_trade_checkin.load_checkins", return_value=[upcoming]):
+            pre_trade_page.render_decision_reviews(streamlit, private_data)
+        self.assertIn("Review early", streamlit.button_labels)
+        self.assertNotIn("Thesis status", streamlit.selectbox_labels)
+        self.assertNotIn("Save decision review", streamlit.button_labels)
+
+    def test_due_review_shows_full_form_automatically(self):
+        streamlit = _ContextualCheckInStreamlit()
+        streamlit.session_state = {}
+        private_data = replace(self.data, source_label="Private sanitized data")
+        due = {**VALID_CHECKIN, "id": "due", "status": "completed", "review_date": date.today().isoformat(), "entry_timing": "before_entry"}
+        with patch("dashboard.pages.pre_trade_checkin.load_checkins", return_value=[due]):
+            pre_trade_page.render_decision_reviews(streamlit, private_data)
+        self.assertIn("Thesis status", streamlit.selectbox_labels)
+        self.assertIn("Save decision review", streamlit.button_labels)
+
     def test_review_progress_counts_plans_without_using_win_rate(self):
         rows = [
             {
@@ -252,7 +322,13 @@ class PreTradeCheckInTests(unittest.TestCase):
     def test_strategy_progress_uses_accepted_pre_entry_experiment(self):
         profile = with_experiment_response(StrategyProfile({}, {}, {}), "pre_entry_exit", "accepted")
         summary = checkin_summary([
-            {"status": "completed", "loss_invalidation_condition": "Exit rule", "review_date": "2026-09-30", "created_at": "2026-08-31T00:00:00Z"}
+            {
+                "status": "completed",
+                "entry_timing": "before_entry",
+                "loss_invalidation_condition": "Exit rule",
+                "review_date": "2026-09-30",
+                "created_at": "2026-08-31T00:00:00Z",
+            }
         ])
         model = build_strategy_discovery_model(self.data, profile=profile, pre_trade_summary=summary)
         self.assertEqual(model["progress"]["completed_pre_trade_checkins"], "1")
@@ -366,9 +442,11 @@ class _ContextualCheckInStreamlit:
     def columns(self, count: int):
         return [_NoOpContext() for _ in range(count)]
 
-    def selectbox(self, label: str, options):
+    def selectbox(self, label: str, options, **kwargs):
         self.selectbox_labels.append(label)
-        return list(options)[0]
+        values = list(options)
+        index = int(kwargs.get("index", 0))
+        return values[index]
 
     def text_input(self, _label: str, value: str = "", **_kwargs):
         return value
